@@ -1,3 +1,36 @@
+<script setup lang="ts">
+  import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
+
+  const voiceRecorder = useVoiceRecorder();
+  const showPermissionError = ref(false);
+  const showValidationError = ref(false);
+
+  const emit = defineEmits(['on-error']);
+
+  const startRecording = async () => {
+    showPermissionError.value = false;
+    showValidationError.value = false;
+
+    const success = await voiceRecorder.startRecording();
+    if (!success) {
+      showPermissionError.value = true;
+      emit('on-error');
+    }
+  };
+
+  const stopRecording = () => {
+    if (voiceRecorder.isRecording) {
+      voiceRecorder.stopRecording();
+    }
+  };
+
+  const formatRecordingTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+</script>
+
 <template>
   <v-card class="voice-recorder" color="surface" elevation="4">
     <v-card-text class="text-center py-6">
@@ -46,12 +79,6 @@
         }}
       </p>
 
-      <!-- Permission Warning -->
-      <v-alert v-if="showPermissionError" type="error" variant="tonal" class="mt-4">
-        <v-icon>mdi-alert</v-icon>
-        Error al acceder al micrófono. Verifica los permisos.
-      </v-alert>
-
       <!-- Audio Validation Warning -->
       <v-alert
         v-if="showValidationError"
@@ -67,37 +94,6 @@
     </v-card-text>
   </v-card>
 </template>
-
-<script setup lang="ts">
-  import { ref } from 'vue';
-  import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
-
-  const voiceRecorder = useVoiceRecorder();
-  const showPermissionError = ref(false);
-  const showValidationError = ref(false);
-
-  const startRecording = async () => {
-    showPermissionError.value = false;
-    showValidationError.value = false;
-
-    const success = await voiceRecorder.startRecording();
-    if (!success) {
-      showPermissionError.value = true;
-    }
-  };
-
-  const stopRecording = () => {
-    if (voiceRecorder.isRecording) {
-      voiceRecorder.stopRecording();
-    }
-  };
-
-  const formatRecordingTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-</script>
 
 <style scoped>
   .voice-recorder {

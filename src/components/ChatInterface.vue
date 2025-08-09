@@ -1,5 +1,30 @@
+<script setup lang="ts">
+  import { useChatStore } from '@/stores/chat.store';
+  import { useRealtimeChat } from '@/composables/useRealtimeChat';
+  import VoiceMessage from './VoiceMessage.vue';
+  import VoiceRecorder from './VoiceRecorder.vue';
+
+  const chatStore = useChatStore();
+  const messagesContainer = ref<HTMLElement>();
+
+  // Initialize realtime connection
+  useRealtimeChat();
+
+  // Auto-scroll to bottom when new messages arrive
+  watch(
+    () => chatStore.messages.length,
+    async () => {
+      await nextTick();
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+    },
+    { flush: 'post' }
+  );
+</script>
+
 <template>
-  <div class="chat-interface d-flex flex-column" style="height: 100vh">
+  <div class="chat-interface d-flex flex-column" style="height: calc(100vh - 100px)">
     <!-- Chat Header -->
     <!-- <ChatHeader /> -->
 
@@ -26,34 +51,9 @@
     </div>
 
     <!-- Voice Recorder -->
-    <VoiceRecorder />
+    <VoiceRecorder @on-error="$emit('on-error')" />
   </div>
 </template>
-
-<script setup lang="ts">
-  import { useChatStore } from '@/stores/chat.store';
-  import { useRealtimeChat } from '@/composables/useRealtimeChat';
-  import VoiceMessage from './VoiceMessage.vue';
-  import VoiceRecorder from './VoiceRecorder.vue';
-
-  const chatStore = useChatStore();
-  const messagesContainer = ref<HTMLElement>();
-
-  // Initialize realtime connection
-  useRealtimeChat();
-
-  // Auto-scroll to bottom when new messages arrive
-  watch(
-    () => chatStore.messages.length,
-    async () => {
-      await nextTick();
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      }
-    },
-    { flush: 'post' }
-  );
-</script>
 
 <style scoped>
   .chat-interface {

@@ -4,6 +4,8 @@
   const drawer = ref(true);
   const { currentThemeName, toggleTheme } = useAppTheme();
 
+  const snackbar = ref(false);
+
   const items = ref([
     {
       title: 'Dashboard',
@@ -54,7 +56,7 @@
       </template>
     </v-navigation-drawer>
 
-    <v-app-bar border="b" class="ps-4" flat>
+    <v-app-bar border="b" class="ps-4" flat color="background">
       <v-app-bar-nav-icon @click="drawer = !drawer" />
 
       <v-app-bar-title>LingoQuesto Chat</v-app-bar-title>
@@ -67,9 +69,19 @@
       </template>
     </v-app-bar>
     <v-main>
-      <router-view />
+      <router-view @on-error="snackbar = true" />
     </v-main>
 
     <AppFooter />
   </v-layout>
+
+  <v-snackbar v-model="snackbar" location="top center" variant="elevated" color="info">
+    <div class="text-subtitle-1 pb-2">¡Ups!</div>
+
+    <p>Algo salió mal</p>
+
+    <template v-slot:actions>
+      <v-btn color="white" variant="text" @click="snackbar = false"> Close </v-btn>
+    </template>
+  </v-snackbar>
 </template>
