@@ -2,26 +2,45 @@
   import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 
   const voiceRecorder = useVoiceRecorder();
+
   const showPermissionError = ref(false);
   const showValidationError = ref(false);
 
   const emit = defineEmits(['on-error']);
 
-  const startRecording = async () => {
+  const startRecording = async (e?: Event) => {
+    e?.preventDefault();
+    
+    if (voiceRecorder.isRecording || voiceRecorder.isRecordingActive) return;
+    
+    console.log('startRecording');
     showPermissionError.value = false;
     showValidationError.value = false;
 
     const success = await voiceRecorder.startRecording();
+
+    console.log(success);
     if (!success) {
       showPermissionError.value = true;
       emit('on-error');
     }
   };
 
-  const stopRecording = () => {
-    if (voiceRecorder.isRecording) {
-      voiceRecorder.stopRecording();
-    }
+  const stopRecording = async (e?: Event) => {
+    e?.preventDefault();
+    
+    console.log('stopRecording');
+    
+    // Primero intentar parada normal
+    await voiceRecorder.stopRecording();
+    
+    // Si después de 500ms aún está grabando, forzar parada
+    setTimeout(async () => {
+      if (voiceRecorder.isRecording || voiceRecorder.isRecordingActive) {
+        console.log('Force stopping as backup');
+        await voiceRecorder.forceStop();
+      }
+    }, 500);
   };
 
   const formatRecordingTime = (seconds: number): string => {
@@ -56,7 +75,7 @@
         </div>
       </div>
 
-      <!-- Record Button -->
+      <!-- Record Button - SIMPLIFICADO -->
       <v-btn
         :color="voiceRecorder.isRecording ? 'error' : 'primary'"
         :icon="voiceRecorder.isRecording ? 'mdi-stop' : 'mdi-microphone'"
@@ -65,9 +84,8 @@
         class="record-button mt-4"
         @mousedown="startRecording"
         @mouseup="stopRecording"
-        @mouseleave="stopRecording"
-        @touchstart="startRecording"
-        @touchend="stopRecording"
+        @touchstart.prevent="startRecording"
+        @touchend.prevent="stopRecording"
       />
 
       <!-- Instructions -->
@@ -94,71 +112,3 @@
     </v-card-text>
   </v-card>
 </template>
-
-<style scoped>
-  .voice-recorder {
-    position: sticky;
-    bottom: 0;
-    z-index: 100;
-    border-radius: 24px 24px 0 0 !important;
-  }
-
-  .record-button {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .record-button:hover {
-    transform: scale(1.05);
-  }
-
-  .record-button:active {
-    transform: scale(0.95);
-  }
-
-  .pulse-animation {
-    animation: pulse 1.5s infinite;
-  }
-
-  @keyframes pulse {
-    0% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      opacity: 0.7;
-    }
-    100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-  }
-
-  .recording-animation {
-    position: relative;
-  }
-
-  .recording-animation::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80px;
-    height: 80px;
-    border: 2px solid rgb(var(--v-theme-error));
-    border-radius: 50%;
-    animation: ripple 2s infinite;
-  }
-
-  @keyframes ripple {
-    0% {
-      transform: translate(-50%, -50%) scale(0.8);
-      opacity: 1;
-    }
-    100% {
-      transform: translate(-50%, -50%) scale(1.8);
-      opacity: 0;
-    }
-  }
-</style>

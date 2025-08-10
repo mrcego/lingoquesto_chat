@@ -65,6 +65,10 @@ export const useChatStore = defineStore('chat', () => {
     recordingDuration.value = duration
   }
   
+  const resetRecordingDuration = () => {
+    recordingDuration.value = 0
+  }
+  
   const loadMessages = () => {
     const saved = localStorage.getItem(`messages_${user.value.nickname}`)
     if (saved) {
@@ -115,6 +119,7 @@ export const useChatStore = defineStore('chat', () => {
     addMessage,
     setRecordingState,
     updateRecordingDuration,
+    resetRecordingDuration,
     loadMessages,
     saveMessages,
     initUser

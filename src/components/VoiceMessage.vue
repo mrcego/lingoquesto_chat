@@ -1,4 +1,4 @@
-<script setup lang="ts">
+  <script setup lang="ts">
   import { computed, ref, watch } from 'vue';
   import type { VoiceMessage } from '@/types/chat';
   import { useVoicePlayer } from '@/composables/useVoicePlayer';
@@ -53,7 +53,7 @@
 <template>
   <v-card
     :class="['voice-message', { 'own-message': message.isOwn, 'other-message': !message.isOwn }]"
-    :color="message.isOwn ? 'primary' : 'surface'"
+    :color="message.isOwn ? 'secondary' : 'surface'"
     :variant="message.isOwn ? 'flat' : 'outlined'"
     elevation="2"
   >
@@ -61,7 +61,7 @@
       <!-- Message Header -->
       <div class="d-flex justify-space-between align-center mb-2">
         <div class="d-flex align-center">
-          <v-avatar :color="message.isOwn ? 'white' : 'primary'" size="24" class="mr-2">
+          <v-avatar :color="message.isOwn ? 'surface' : 'primary'" size="24" class="mr-2">
             <span :class="message.isOwn ? 'text-primary' : 'text-white'" style="font-size: 12px">
               {{ message.nickname.charAt(0).toUpperCase() }}
             </span>
@@ -69,14 +69,14 @@
           <span
             :class="[
               'text-caption font-weight-medium',
-              message.isOwn ? 'text-white' : 'text-primary',
+              message.isOwn ? 'text-surface' : 'text-primary',
             ]"
           >
             {{ message.isOwn ? 'Tú' : message.nickname }}
           </span>
         </div>
         <span
-          :class="['text-caption', message.isOwn ? 'text-grey-lighten-2' : 'text-grey-darken-1']"
+          :class="['text-caption', message.isOwn ? 'text-surface' : 'text-primary']"
         >
           {{ formatTime(message.timestamp) }}
         </span>
@@ -87,7 +87,7 @@
         <!-- Play/Pause Button -->
         <v-btn
           :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
-          :color="message.isOwn ? 'white' : 'primary'"
+          :color="message.isOwn ? 'accent' : 'primary'"
           variant="flat"
           size="small"
           class="mr-3"
@@ -110,11 +110,14 @@
         <span
           :class="[
             'text-caption mr-2',
-            message.isOwn ? 'text-grey-lighten-2' : 'text-grey-darken-1',
+            message.isOwn ? 'text-surface' : 'text-grey-darken-1',
           ]"
         >
-          {{ isPlaying ? `${voicePlayer.formatTime(voicePlayer.currentTime.value)} / ` : ''
-          }}{{ voicePlayer.formatTime(message.duration) }}
+          {{
+            isPlaying
+              ? `${voicePlayer.formatTime(Math.min(voicePlayer.currentTime.value, message.duration))} / `
+              : ''
+          }}{{ message.duration ? voicePlayer.formatTime(message.duration) : '-' }}
         </span>
 
         <!-- Speed Control -->
@@ -122,7 +125,7 @@
           <template #activator="{ props }">
             <v-btn
               v-bind="props"
-              :color="message.isOwn ? 'white' : 'primary'"
+              :color="message.isOwn ? 'surface' : 'primary'"
               variant="text"
               size="small"
               class="text-caption"
@@ -190,7 +193,7 @@
   }
 
   .own-message .waveform-bar {
-    background-color: white;
+    background-color: rgb(var(--v-theme-surface));
   }
 
   .other-message .waveform-bar {
