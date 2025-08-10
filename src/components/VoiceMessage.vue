@@ -1,53 +1,82 @@
-  <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
-  import type { VoiceMessage } from '@/types/chat';
-  import { useVoicePlayer } from '@/composables/useVoicePlayer';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import type { VoiceMessage } from '@/types/chat';
+import { useVoicePlayer } from '@/composables/useVoicePlayer';
 
-  interface Props {
-    message: VoiceMessage;
+interface Props {
+  message: VoiceMessage;
+}
+
+const props = defineProps<Props>();
+const voicePlayer = useVoicePlayer();
+
+const { currentTime } = voicePlayer;
+
+// Generate random waveform bars for visual effect
+const waveformBars = ref(Array.from({ length: 20 }, () => Math.random() * 100));
+
+const isPlaying = computed(() => voicePlayer.isMessagePlaying(props.message.id));
+
+// Validar y normalizar la duración del mensaje
+const messageDuration = computed(() => {
+  const dur = props.message.duration;
+  if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) {
+    return 1; // Duración mínima por defecto
   }
+  return Math.round(dur);
+});
 
-  const props = defineProps<Props>();
-  const voicePlayer = useVoicePlayer();
+// Validar y normalizar el tiempo actual
+const currentPlayTime = computed(() => {
+  const time = currentTime.value;
+  if (!time || isNaN(time) || !isFinite(time) || time < 0) {
+    return 0;
+  }
+  return Math.min(time, messageDuration.value);
+});
 
-  const { currentTime, duration } = voicePlayer;
+const progressBars = computed(() => {
+  if (!isPlaying.value || messageDuration.value === 0) return 0;
+  return Math.floor((currentPlayTime.value / messageDuration.value) * waveformBars.value.length);
+});
 
-  // Generate random waveform bars for visual effect
-  const waveformBars = ref(Array.from({ length: 20 }, () => Math.random() * 100));
+const togglePlayback = async () => {
+  if (isPlaying.value) {
+    voicePlayer.pauseAudio();
+  } else {
+    await voicePlayer.playAudio(props.message.audioUrl, props.message.id);
+  }
+};
 
-  const isPlaying = computed(() => voicePlayer.isMessagePlaying(props.message.id));
+const setPlaybackSpeed = (speed: number) => {
+  voicePlayer.setPlaybackRate(speed);
+};
 
-  const progressBars = computed(() => {
-    if (!isPlaying.value || props.message.duration === 0) return 0;
-    return Math.floor((currentTime.value / props.message.duration) * waveformBars.value.length);
-  });
+const formatTime = (date: Date): string => {
+  return new Intl.DateTimeFormat('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+};
 
-  const togglePlayback = async () => {
-    if (isPlaying.value) {
-      voicePlayer.pauseAudio();
-    } else {
-      await voicePlayer.playAudio(props.message.audioUrl, props.message.id);
-    }
-  };
+// Función para formatear duración en mm:ss
+const formatDuration = (seconds: number): string => {
+  if (!seconds || isNaN(seconds) || !isFinite(seconds)) {
+    return '0:01';
+  }
+  
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
-  const setPlaybackSpeed = (speed: number) => {
-    voicePlayer.setPlaybackRate(speed);
-  };
-
-  const formatTime = (date: Date): string => {
-    return new Intl.DateTimeFormat('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  };
-
-  // Watch for message changes to regenerate waveform
-  watch(
-    () => props.message.id,
-    () => {
-      waveformBars.value = Array.from({ length: 20 }, () => Math.random() * 100);
-    }
-  );
+// Watch for message changes to regenerate waveform
+watch(
+  () => props.message.id,
+  () => {
+    waveformBars.value = Array.from({ length: 20 }, () => Math.random() * 100);
+  }
+);
 </script>
 
 <template>
@@ -76,7 +105,7 @@
           </span>
         </div>
         <span
-          :class="['text-caption', message.isOwn ? 'text-surface' : 'text-primary']"
+          :class="['text-caption', message.isOwn ? 'text-surface' : 'text-accent']"
         >
           {{ formatTime(message.timestamp) }}
         </span>
@@ -87,7 +116,7 @@
         <!-- Play/Pause Button -->
         <v-btn
           :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
-          :color="message.isOwn ? 'accent' : 'primary'"
+          :color="message.isOwn ? 'surface' : 'accent'"
           variant="flat"
           size="small"
           class="mr-3"
@@ -125,7 +154,7 @@
           <template #activator="{ props }">
             <v-btn
               v-bind="props"
-              :color="message.isOwn ? 'surface' : 'primary'"
+              :color="message.isOwn ? 'surface' : 'accent'"
               variant="text"
               size="small"
               class="text-caption"
@@ -197,6 +226,6 @@
   }
 
   .other-message .waveform-bar {
-    background-color: rgb(var(--v-theme-primary));
+    background-color: rgb(var(--v-theme-accent));
   }
 </style>

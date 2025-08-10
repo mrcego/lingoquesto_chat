@@ -299,18 +299,23 @@ export const useVoiceRecorder = () => {
       const audioUrl = URL.createObjectURL(audioBlob)
       const duration = await getAudioDuration(audioBlob)
       
+      // Validar que todos los valores sean correctos
+      const validatedDuration = Math.max(1, Math.min(30, duration)) // Entre 1 y 30 segundos
+      
+      console.log('Creating voice message with duration:', validatedDuration)
+      
       const message: VoiceMessage = {
         id: Date.now().toString(),
         nickname: chatStore.userNickname,
         audioBlob,
         audioUrl,
-        duration,
+        duration: validatedDuration,
         timestamp: new Date(),
         isOwn: true
       }
       
       chatStore.addMessage(message)
-      console.log('Voice message created successfully')
+      console.log('Voice message created successfully with duration:', validatedDuration)
       
     } catch (error) {
       console.error('Error creating voice message:', error)
@@ -328,20 +333,32 @@ export const useVoiceRecorder = () => {
       }
       
       const timeout = setTimeout(() => {
-        resolve(1)
+        console.log('Audio duration timeout, using fallback')
+        resolve(Math.max(1, Math.floor(audioBlob.size / 16000))) // Estimación basada en tamaño
         cleanup()
       }, 3000)
       
       audio.onloadedmetadata = () => {
         clearTimeout(timeout)
-        const duration = Math.round(audio.duration) || 1
+        let duration = audio.duration
+        
+        // Verificar que la duración es válida
+        if (!duration || isNaN(duration) || !isFinite(duration) || duration <= 0) {
+          console.log('Invalid audio duration:', duration, 'using fallback')
+          duration = Math.max(1, Math.floor(audioBlob.size / 16000)) // Estimación
+        } else {
+          duration = Math.round(duration)
+        }
+        
+        console.log('Audio duration calculated:', duration, 'seconds')
         resolve(duration)
         cleanup()
       }
       
-      audio.onerror = () => {
+      audio.onerror = (error) => {
+        console.error('Error loading audio for duration:', error)
         clearTimeout(timeout)
-        resolve(1)
+        resolve(Math.max(1, Math.floor(audioBlob.size / 16000))) // Estimación basada en tamaño
         cleanup()
       }
       

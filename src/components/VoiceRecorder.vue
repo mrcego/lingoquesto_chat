@@ -11,7 +11,7 @@
   const startRecording = async (e?: Event) => {
     e?.preventDefault();
     
-    if (voiceRecorder.isRecording || voiceRecorder.isRecordingActive) return;
+    if (voiceRecorder.isRecording) return;
     
     console.log('startRecording');
     showPermissionError.value = false;
@@ -36,7 +36,7 @@
     
     // Si después de 500ms aún está grabando, forzar parada
     setTimeout(async () => {
-      if (voiceRecorder.isRecording || voiceRecorder.isRecordingActive) {
+      if (voiceRecorder.isRecording) {
         console.log('Force stopping as backup');
         await voiceRecorder.forceStop();
       }
