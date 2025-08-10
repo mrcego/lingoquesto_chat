@@ -1,8 +1,8 @@
 <script setup lang="ts">
   import { useChatStore } from '@/stores/chat.store';
   import { useRealtimeChat } from '@/composables/useRealtimeChat';
-  import VoiceMessage from './VoiceMessage.vue';
-  import VoiceRecorder from './VoiceRecorder.vue';
+  import VoiceMessage from '@/components/VoiceMessage.vue';
+  import VoiceRecorder from '@/components/VoiceRecorder.vue';
 
   const chatStore = useChatStore();
   const messagesContainer = ref<HTMLElement>();
@@ -25,9 +25,6 @@
 
 <template>
   <div class="chat-interface d-flex flex-column" style="height: calc(100vh - 100px)">
-    <!-- Chat Header -->
-    <!-- <ChatHeader /> -->
-
     <!-- Messages Container -->
     <div class="messages-container flex-grow-1" ref="messagesContainer">
       <v-container class="py-4">
@@ -50,7 +47,6 @@
       </v-container>
     </div>
 
-    <!-- Voice Recorder -->
     <VoiceRecorder @on-error="$emit('on-error')" />
   </div>
 </template>

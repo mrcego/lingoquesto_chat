@@ -18,7 +18,9 @@ export default defineConfig({
     VueRouter({
       dts: 'src/typed-router.d.ts',
     }),
-    Layouts(),
+    Layouts({
+      defaultLayout: 'auth',
+    }),
     AutoImport({
       imports: [
         'vue',
