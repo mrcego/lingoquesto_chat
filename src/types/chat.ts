@@ -10,6 +10,7 @@ export interface VoiceMessage {
 
 export interface User {
   nickname: string;
+  initials: string;
   isLoggedIn: boolean;
 }
 

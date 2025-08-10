@@ -6,14 +6,16 @@
   const router = useRouter();
   const chatStore = useChatStore();
 
-  const nickname = ref('');
+  const name = ref('');
+  const lastname = ref('');
+
   const errorMessage = ref('');
   const isLoading = ref(false);
   const hasAudioSupport = ref(true);
   const form = ref();
 
-  const nicknameRules = [
-    (v: string) => !!v || 'El nickname es requerido',
+  const fieldRules = [
+    (v: string) => !!v || 'Debes ingresar información aquí  ',
     (v: string) => (v && v.length >= 2) || 'Mínimo 2 caracteres',
     (v: string) => (v && v.length <= 20) || 'Máximo 20 caracteres',
     (v: string) => /^[a-zA-Z0-9_\-\s]+$/.test(v) || 'Solo letras, números, guiones y espacios',
@@ -31,8 +33,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
 
-      chatStore.login(nickname.value);
-      router.push('/chats');
+      chatStore.login(`${name.value} ${lastname.value}`);
     } catch (error) {
       errorMessage.value = 'Error al acceder al micrófono. Por favor, permite el acceso.';
       console.error('Microphone access error:', error);
@@ -54,29 +55,36 @@
         <v-card class="login-card" elevation="12" rounded="lg">
           <v-card-title class="text-center pa-8">
             <v-icon color="primary" size="64" class="mb-4">mdi-microphone</v-icon>
-            <h1 class="text-h4 font-weight-bold gradient-text">MiniChat Voz</h1>
-            <p class="text-subtitle-1 mt-2 text-grey-darken-1">
-              Chatea con mensajes de voz en tiempo real
-            </p>
+            <h1 class="text-h4 font-weight-bold text-primary">LingoQuesto Voice Chat</h1>
           </v-card-title>
 
           <v-card-text class="px-8 pb-8">
             <v-form @submit.prevent="handleLogin" ref="form">
               <v-text-field
-                v-model="nickname"
-                label="Tu nickname"
+                v-model="name"
+                label="Tu nombre"
                 prepend-inner-icon="mdi-account"
                 variant="outlined"
-                :rules="nicknameRules"
+                :rules="fieldRules"
                 :error-messages="errorMessage"
                 class="mb-4"
                 autofocus
+              />
+
+              <v-text-field
+                v-model="lastname"
+                label="Tu apellido"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :rules="fieldRules"
+                :error-messages="errorMessage"
+                class="mb-4"
                 @keyup.enter="handleLogin"
               />
 
               <v-btn
                 type="submit"
-                color="primary"
+                color="secondary"
                 size="large"
                 block
                 :loading="isLoading"
@@ -101,17 +109,12 @@
 
 <style scoped>
   .login-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2b2f4b 100%, #b6643a 100%);
     min-height: 100vh;
   }
 
-  .login-card {
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.95) !important;
-  }
-
   .gradient-text {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #2b2f4b 100%, #b6643a 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

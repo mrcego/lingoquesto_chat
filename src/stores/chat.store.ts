@@ -6,6 +6,7 @@ export const useChatStore = defineStore('chat', () => {
   // State
   const user = ref<User>({
     nickname: '',
+    initials: '',
     isLoggedIn: false
   })
   
@@ -16,6 +17,7 @@ export const useChatStore = defineStore('chat', () => {
   // Getters
   const isUserLoggedIn = computed(() => user.value.isLoggedIn)
   const userNickname = computed(() => user.value.nickname)
+  const userInitials = computed(() => user.value.initials)
   const sortedMessages = computed(() => 
     [...messages.value].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
   )
@@ -24,6 +26,7 @@ export const useChatStore = defineStore('chat', () => {
   const login = (nickname: string) => {
     user.value = {
       nickname: nickname.trim(),
+      initials: `${nickname.trim().split(' ')[0].charAt(0).toUpperCase()}${nickname.trim().split(' ')[1].charAt(0).toUpperCase()}`,
       isLoggedIn: true
     }
     localStorage.setItem('user', JSON.stringify(user.value))
@@ -33,6 +36,7 @@ export const useChatStore = defineStore('chat', () => {
   const logout = () => {
     user.value = {
       nickname: '',
+      initials: '',
       isLoggedIn: false
     }
     localStorage.removeItem('user')

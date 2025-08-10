@@ -23,6 +23,11 @@
   );
 </script>
 
+<route lang="yaml">
+  meta:
+    layout: default
+</route>
+
 <template>
   <div class="chat-interface d-flex flex-column" style="height: calc(100vh - 100px)">
     <!-- Messages Container -->

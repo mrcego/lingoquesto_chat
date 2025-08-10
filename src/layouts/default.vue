@@ -1,5 +1,8 @@
 <script lang="ts" setup>
   import { useAppTheme } from '@/composables/useAppTheme';
+  import { useChatStore } from '@/stores/chat.store';
+
+  const chatStore = useChatStore();
 
   const drawer = ref(true);
   const { currentThemeName, toggleTheme } = useAppTheme();
@@ -44,15 +47,22 @@
         <v-sheet class="pa-6 ga-1 align-center justify-center d-flex flex-column">
           <v-badge color="green" dot>
             <v-avatar size="64" color="secondary">
-              <span class="text-h5 text-background">CG</span>
+              <span class="text-h5 text-background">{{ chatStore.user.initials }}</span>
             </v-avatar>
           </v-badge>
-          <span class="text-subtitle-1 font-weight-medium">Cesar Gómez</span>
+          <span class="text-subtitle-1 font-weight-medium">{{ chatStore.user.nickname }}</span>
         </v-sheet>
       </template>
 
       <template #append>
-        <v-list-item class="ma-2" link nav prepend-icon="mdi-cog-outline" title="Settings" />
+        <v-list-item
+          class="ma-2"
+          link
+          nav
+          prepend-icon="mdi-logout"
+          title="Cerrar sesión"
+          @click="chatStore.logout()"
+        />
       </template>
     </v-navigation-drawer>
 

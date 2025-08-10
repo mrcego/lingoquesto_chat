@@ -7,7 +7,22 @@
 </template>
 
 <script lang="ts" setup>
-  //
+  import { useChatStore } from '@/stores/chat.store';
+  const chatStore = useChatStore();
+
+  const isUserLoggedIn = computed(() => chatStore.isUserLoggedIn);
+
+  const router = useRouter();
+
+  watch(
+    isUserLoggedIn,
+    (isLoggedIn) => {
+      router.push(isLoggedIn ? '/chats' : '/');
+    },
+    { immediate: true }
+  );
+
+  chatStore.initUser();
 </script>
 
 <style>
