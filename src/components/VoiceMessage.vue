@@ -91,15 +91,15 @@
     }).format(date);
   };
 
-  // Función para formatear duración en mm:ss
-  const formatDuration = (seconds: number): string => {
-    if (!seconds || isNaN(seconds) || !isFinite(seconds)) {
-      return '0:01';
+  const getInitials = (name: string): string => {
+    if (!name) return '?';
+    const names = name.split(' ');
+    let initials = names[0].charAt(0).toUpperCase();
+    if (names.length > 1) {
+      // Take the first character of the first word and first character of the second word
+      initials = names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
     }
-
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.round(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return initials;
   };
 
   // Watch for message changes to regenerate waveform
@@ -124,7 +124,7 @@
         <div class="d-flex align-center">
           <v-avatar :color="message.isOwn ? 'surface' : 'accent'" size="24" class="mr-2">
             <span :class="message.isOwn ? 'text-primary' : 'text-white'" style="font-size: 12px">
-              {{ chatStore.user.initials }}
+              {{ getInitials(message.nickname) }}
             </span>
           </v-avatar>
           <span
