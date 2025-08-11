@@ -15,6 +15,7 @@
     "@fontsource/roboto": "5.2.6",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^13.6.0",
+    "firebase": "^12.1.0",
     "pinia": "^3.0.3",
     "vue": "^3.5.18",
     "vuetify": "^3.9.4"

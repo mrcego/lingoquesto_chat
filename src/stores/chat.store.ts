@@ -9,19 +9,23 @@ export const useChatStore = defineStore('chat', () => {
     initials: '',
     isLoggedIn: false
   })
-  
+
   const messages = ref<VoiceMessage[]>([])
   const isRecording = ref(false)
   const recordingDuration = ref(0)
-  
+
   // Getters
   const isUserLoggedIn = computed(() => user.value.isLoggedIn)
   const userNickname = computed(() => user.value.nickname)
   const userInitials = computed(() => user.value.initials)
-  const sortedMessages = computed(() => 
-    [...messages.value].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+  const sortedMessages = computed(() =>
+    [...messages.value].sort((a, b) => {
+      const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp.getTime();
+      const timeB = typeof b.timestamp === 'string' ? new Date(b.timestamp).getTime() : b.timestamp.getTime();
+      return timeA - timeB;
+    })
   )
-  
+
   // Actions
   const login = (nickname: string) => {
     user.value = {
@@ -32,7 +36,7 @@ export const useChatStore = defineStore('chat', () => {
     localStorage.setItem('user', JSON.stringify(user.value))
     loadMessages()
   }
-  
+
   const logout = () => {
     user.value = {
       nickname: '',
@@ -41,45 +45,69 @@ export const useChatStore = defineStore('chat', () => {
     }
     localStorage.removeItem('user')
   }
-  
+
   const addMessage = (message: VoiceMessage) => {
     messages.value.push(message)
     saveMessages()
   }
-  
+
   const setRecordingState = (recording: boolean) => {
     isRecording.value = recording
     if (!recording) {
       recordingDuration.value = 0
     }
   }
-  
+
   const updateRecordingDuration = (duration: number) => {
     recordingDuration.value = duration
   }
-  
+
   const loadMessages = () => {
-    const saved = localStorage.getItem(`messages_${user.value.nickname}`)
-    if (saved) {
-      const parsedMessages = JSON.parse(saved)
-      messages.value = parsedMessages.map((msg: any) => ({
-        ...msg,
-        timestamp: new Date(msg.timestamp),
-        audioBlob: null // Don't store blobs in localStorage
-      }))
+    try {
+      const savedMessages = localStorage.getItem(`chat_messages_${user.value.nickname}`);
+      if (savedMessages) {
+        const parsedMessages = JSON.parse(savedMessages);
+        // Ensure messages are properly formatted with Date objects
+        messages.value = parsedMessages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp), // Convert string timestamp back to Date
+          audioData: msg.audioData || '',     // Ensure audioData exists
+          isOwn: msg.nickname === user.value.nickname // Ensure isOwn is set correctly
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
     }
   }
-  
+
+  const setMessages = (newMessages: VoiceMessage[]) => {
+    messages.value = newMessages;
+    saveMessages(); // Save to localStorage
+  }
+
+  // In your chat store
   const saveMessages = () => {
-    if (user.value.isLoggedIn) {
-      const messagesToSave = messages.value.map(msg => ({
-        ...msg,
-        audioBlob: null // Don't save blobs
-      }))
-      localStorage.setItem(`messages_${user.value.nickname}`, JSON.stringify(messagesToSave))
+    try {
+      const messagesToSave = messages.value.map(msg => {
+        // Create a clean copy without any Vue reactivity
+        const { id, type, nickname, audioData, mimeType, duration, timestamp, isOwn } = msg;
+        return {
+          id,
+          type,
+          nickname,
+          audioData,  // This should be the base64 string
+          mimeType,
+          duration,
+          timestamp: timestamp.toString(), // Convert Date to string
+          isOwn
+        };
+      });
+      localStorage.setItem(`chat_messages_${userNickname.value}`, JSON.stringify(messagesToSave));
+    } catch (error) {
+      console.error('Error saving messages:', error);
     }
-  }
-  
+  };
+
   const initUser = () => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
@@ -89,20 +117,20 @@ export const useChatStore = defineStore('chat', () => {
       }
     }
   }
-  
+
   return {
     // State
     user,
     messages,
     isRecording,
     recordingDuration,
-    
+
     // Getters
     isUserLoggedIn,
     userNickname,
     userInitials,
     sortedMessages,
-    
+
     // Actions
     login,
     logout,
@@ -110,7 +138,7 @@ export const useChatStore = defineStore('chat', () => {
     setRecordingState,
     updateRecordingDuration,
     loadMessages,
-    saveMessages,
+    setMessages,
     initUser
   }
 })

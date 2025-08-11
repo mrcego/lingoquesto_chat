@@ -3,8 +3,12 @@
   import { useChatStore } from '@/stores/chat.store';
   import { useRouter } from 'vue-router';
 
+  import { useRealtimeChat } from '@/composables/useRealtimeChat';
+
   const router = useRouter();
   const chatStore = useChatStore();
+
+  const { connect } = useRealtimeChat();
 
   const name = ref('');
   const lastname = ref('');
@@ -34,6 +38,9 @@
       stream.getTracks().forEach((track) => track.stop());
 
       chatStore.login(`${name.value} ${lastname.value}`);
+
+      // Connect to Firebase after successful login
+      connect();
     } catch (error) {
       errorMessage.value = 'Error al acceder al micrófono. Por favor, permite el acceso.';
       console.error('Microphone access error:', error);

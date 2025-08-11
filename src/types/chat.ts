@@ -1,10 +1,11 @@
 export interface VoiceMessage {
   id: string;
+  type: string;
   nickname: string;
-  audioBlob: Blob;
-  audioUrl: string;
+  audioData: string;
+  mimeType: string;
   duration: number;
-  timestamp: Date;
+  timestamp: Date | string;
   isOwn: boolean;
 }
 

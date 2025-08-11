@@ -1,13 +1,14 @@
 <script setup lang="ts">
+  import { computed, ref, watch } from 'vue';
   import type { VoiceMessage } from '@/types/chat';
   import { useVoicePlayer } from '@/composables/useVoicePlayer';
-  import { useChatStore } from '@/stores/chat.store';
+  import { useRealtimeChat } from '@/composables/useRealtimeChat';
+
+  const { base64ToBlob } = useRealtimeChat();
 
   interface Props {
     message: VoiceMessage;
   }
-
-  const chatStore = useChatStore();
 
   const props = defineProps<Props>();
   const voicePlayer = useVoicePlayer();
@@ -42,11 +43,40 @@
     return Math.floor((currentPlayTime.value / messageDuration.value) * waveformBars.value.length);
   });
 
+  const audioUrl = computed(() => {
+    if (!props.message.audioData || typeof props.message.audioData !== 'string') {
+      console.error('Invalid audio data:', props.message.audioData);
+      return null;
+    }
+    try {
+      const mimeType = props.message.mimeType || 'audio/webm';
+      // Convert base64 back to Blob
+      const byteCharacters = atob(props.message.audioData);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Error creating audio URL:', error);
+      return null;
+    }
+  });
+
+  // Don't forget to clean up the URL when the component is unmounted
+  onUnmounted(() => {
+    if (audioUrl.value) {
+      URL.revokeObjectURL(audioUrl.value);
+    }
+  });
+
   const togglePlayback = async () => {
     if (isPlaying.value) {
       voicePlayer.pauseAudio();
     } else {
-      await voicePlayer.playAudio(props.message.audioUrl, props.message.id);
+      await voicePlayer.playAudio(audioUrl.value!, props.message.id);
     }
   };
 
@@ -94,7 +124,7 @@
         <div class="d-flex align-center">
           <v-avatar :color="message.isOwn ? 'surface' : 'primary'" size="24" class="mr-2">
             <span :class="message.isOwn ? 'text-primary' : 'text-white'" style="font-size: 12px">
-              {{ chatStore.userInitials }}
+              {{ message.nickname.charAt(0).toUpperCase() }}
             </span>
           </v-avatar>
           <span
@@ -107,7 +137,7 @@
           </span>
         </div>
         <span :class="['text-caption', message.isOwn ? 'text-surface' : 'text-accent']">
-          {{ formatTime(message.timestamp) }}
+          {{ formatTime(message.timestamp as Date) }}
         </span>
       </div>
 

@@ -1,14 +1,13 @@
 <script setup lang="ts">
+  import { ref as dbRef, off } from 'firebase/database';
+  import { db } from '@/firebase';
+
   import { useChatStore } from '@/stores/chat.store';
-  import { useRealtimeChat } from '@/composables/useRealtimeChat';
   import VoiceMessage from '@/components/VoiceMessage.vue';
   import VoiceRecorder from '@/components/VoiceRecorder.vue';
 
   const chatStore = useChatStore();
   const messagesContainer = ref<HTMLElement>();
-
-  // Initialize realtime connection
-  const realtimeChat = useRealtimeChat();
 
   // Auto-scroll to bottom when new messages arrive
   watch(
@@ -21,6 +20,11 @@
     },
     { flush: 'post' }
   );
+
+  onUnmounted(() => {
+    // Clean up Firebase listener
+    off(dbRef(db, 'messages'));
+  });
 </script>
 
 <route lang="yaml">
