@@ -1,47 +1,56 @@
 <script lang="ts" setup>
   import { useAppTheme } from '@/composables/useAppTheme';
   import { useChatStore } from '@/stores/chat.store';
+  import { useRealtimeChat } from '@/composables/useRealtimeChat';
 
   const chatStore = useChatStore();
+  const realtimeChat = useRealtimeChat();
 
   const drawer = ref(true);
+
+  const unsubscribe = realtimeChat.onOnlineUsersUpdated((users) => {
+    console.log(users);
+    chatStore.setOnlineUsers(users);
+  });
+
+  onUnmounted(() => {
+    if (unsubscribe) unsubscribe();
+  });
+
   const { currentThemeName, toggleTheme } = useAppTheme();
 
   const snackbar = ref(false);
-
-  const items = ref([
-    {
-      title: 'Dashboard',
-      prependIcon: 'mdi-view-dashboard-outline',
-      link: true,
-    },
-    {
-      title: 'Team',
-      prependIcon: 'mdi-account-group',
-      link: true,
-    },
-    {
-      title: 'Projects',
-      prependIcon: 'mdi-briefcase-outline',
-      link: true,
-    },
-    {
-      title: 'Calendar',
-      prependIcon: 'mdi-calendar',
-      link: true,
-    },
-    {
-      title: 'Reports',
-      prependIcon: 'mdi-file-chart-outline',
-      link: true,
-    },
-  ]);
 </script>
 
 <template>
   <v-layout>
     <v-navigation-drawer v-model="drawer" color="background">
-      <v-list density="compact" item-props :items="items" nav />
+      <v-list density="compact" nav>
+        <v-list-subheader>Usuarios en línea</v-list-subheader>
+        <v-list-item
+          v-for="user in chatStore.onlineUsers"
+          :key="user.nickname"
+          :title="user.nickname"
+          :subtitle="user.online ? 'En línea' : 'Desconectado'"
+          :class="{ 'bg-grey-lighten-4': user.nickname === chatStore.userNickname }"
+        >
+          <template v-slot:prepend>
+            <v-badge color="success" dot :model-value="user.online" offset-x="-5" offset-y="-5">
+              <v-avatar size="40" color="primary">
+                <span class="text-white">
+                  {{
+                    user.nickname
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .toUpperCase()
+                  }}
+                </span>
+              </v-avatar>
+            </v-badge>
+          </template>
+        </v-list-item>
+      </v-list>
 
       <template #prepend>
         <v-sheet class="pa-6 ga-1 align-center justify-center d-flex flex-column">

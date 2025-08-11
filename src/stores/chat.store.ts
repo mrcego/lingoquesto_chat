@@ -13,6 +13,12 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<VoiceMessage[]>([])
   const isRecording = ref(false)
   const recordingDuration = ref(0)
+  const onlineUsers = ref<Array<{
+    nickname: string
+    online: boolean
+    lastSeen?: Date
+    isCurrentUser: boolean
+  }>>([])
 
   // Getters
   const isUserLoggedIn = computed(() => user.value.isLoggedIn)
@@ -118,6 +124,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  const setOnlineUsers = (users: Array<{
+    nickname: string
+    online: boolean
+    lastChanged?: Date
+    isCurrentUser?: boolean
+  }>) => {
+    console.log('Setting online users:', users)
+    onlineUsers.value = users
+  }
+
   return {
     // State
     user,
@@ -139,6 +155,8 @@ export const useChatStore = defineStore('chat', () => {
     updateRecordingDuration,
     loadMessages,
     setMessages,
-    initUser
+    initUser,
+    onlineUsers: computed(() => onlineUsers.value),
+    setOnlineUsers
   }
 })

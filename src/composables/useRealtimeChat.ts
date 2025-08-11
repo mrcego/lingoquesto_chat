@@ -6,7 +6,8 @@ import {
   push,
   off,
   orderByChild,
-  query
+  query,
+  set
 } from 'firebase/database'
 import { db } from '@/firebase'
 import { useChatStore } from '@/stores/chat.store'
@@ -53,35 +54,102 @@ export const useRealtimeChat = () => {
     }
   }
 
-  const connect = () => {
+  const onOnlineUsersUpdated = (callback: (users: Array<{
+    nickname: string
+    online: boolean
+    lastChanged?: Date
+  }>) => void) => {
+    const statusRef = dbRef(db, 'status')
+    console.log('Setting up online users listener...')
+
+    const listener = onValue(statusRef, (snapshot) => {
+      const statusData = snapshot.val() || {}
+      console.log('Raw status data:', statusData)
+
+      const users = Object.entries(statusData)
+        .map(([_, data]: [string, any]) => {
+          if (!data || typeof data !== 'object') {
+            return null
+          }
+
+          // Use stored nickname if available, otherwise use the key
+          const nickname = data.nickname || data.nickname
+          if (!nickname) {
+            console.warn('User data missing nickname:', data)
+            return null
+          }
+
+          return {
+            nickname: nickname,
+            online: data.state === 'online',
+            lastChanged: data.lastChanged ? new Date(data.lastChanged) : undefined
+          }
+        })
+        .filter(Boolean)
+
+      console.log('Processed users:', users)
+      callback(users)
+    })
+
+    return () => {
+      console.log('Cleaning up online users listener')
+      off(statusRef, 'value', listener)
+    }
+  }
+
+  const connect = async () => {
     connectionStatus.value = 'connecting'
 
-    onValue(isOnlineRef, (snapshot) => {
-      const isConnected = snapshot.val() === true
-      connectionStatus.value = isConnected ? 'connected' : 'disconnected'
-      updateUserStatus(isConnected)
-    })
+    try {
+      // Make sure we have a valid nickname
+      const nickname = chatStore.userNickname
+      if (!nickname) {
+        throw new Error('No nickname provided')
+      }
 
-    onValue(userStatusRef, (snapshot) => {
-      const users = snapshot.val() || {}
-      const online: { [key: string]: string } = {}
+      // Normalize the nickname for Firebase key
+      const normalizedNickname = nickname.replace(/\./g, ',')
+      const userStatusRef = dbRef(db, `status/${normalizedNickname}`)
+      const userStatusDatabaseRef = dbRef(db, '.info/connected')
 
-      Object.entries(users).forEach(([userId, userData]: [string, any]) => {
-        if (typeof userData === 'object' && userData !== null) {
-          if (userData.status === 'online') {
-            online[userId] = userData.nickname || userId
-          }
-        } else if (userData === 'online') {
-          online[userId] = userId
+      console.log('Connecting with nickname:', nickname, 'Normalized:', normalizedNickname)
+
+      // Set up the onDisconnect first
+      await set(userStatusRef, {
+        state: 'online',
+        nickname: nickname,
+        lastChanged: serverTimestamp()
+      });
+
+      // Then set up the onDisconnect handler
+      onDisconnectRef(userStatusRef).set({
+        state: 'offline',
+        nickname: nickname,
+        lastChanged: serverTimestamp()
+      });
+
+      // Monitor connection state
+      onValue(userStatusDatabaseRef, (snapshot) => {
+        if (snapshot.val() === false) {
+          connectionStatus.value = 'disconnected';
+          return;
         }
-      })
 
-      onlineUsers.value = online
-    })
+        // When we connect, set our online status
+        set(userStatusRef, {
+          state: 'online',
+          nickname: nickname,
+          lastChanged: serverTimestamp()
+        });
+      });
 
-    setupMessageListener()
+      connectionStatus.value = 'connected';
+      setupMessageListener()
+    } catch (error) {
+      console.error('Connection error:', error);
+      connectionStatus.value = 'disconnected';
+    }
 
-    connectionStatus.value = 'connected'
   }
 
   const setupMessageListener = () => {
@@ -93,8 +161,10 @@ export const useRealtimeChat = () => {
 
       return onValue(messagesRef, (snapshot) => {
         const messagesList: VoiceMessage[] = [];
+
         snapshot.forEach((childSnapshot) => {
           const msg = childSnapshot.val();
+
           messagesList.push({
             id: childSnapshot.key || Date.now().toString(),
             type: msg.type,
@@ -106,21 +176,11 @@ export const useRealtimeChat = () => {
             isOwn: msg.nickname === chatStore.userNickname
           });
         });
+
         chatStore.setMessages(messagesList);
       });
     } catch (error) {
       console.error('Error setting up message listener:', error);
-    }
-  }
-
-  const sendMessage = async (message: any) => {
-    try {
-      await push(dbRef(db, 'messages'), {
-        ...message,
-        timestamp: serverTimestamp()
-      })
-    } catch (error) {
-      console.error('Error sending message:', error)
     }
   }
 
@@ -129,8 +189,8 @@ export const useRealtimeChat = () => {
       await push(dbRef(db, 'messages'), {
         type: 'VOICE_MESSAGE',
         nickname: voiceMessage.nickname,
-        audioData: voiceMessage.audioData,       // Solo el base64 puro
-        mimeType: voiceMessage.mimeType,                // Tipo de audio
+        audioData: voiceMessage.audioData,
+        mimeType: voiceMessage.mimeType,
         duration: voiceMessage.duration,
         timestamp: serverTimestamp(),
         isOwn: chatStore.userNickname === voiceMessage.nickname
@@ -140,21 +200,6 @@ export const useRealtimeChat = () => {
       throw error
     }
   }
-
-  const blobToBase64 = (blob: Blob): Promise<{ base64: string, mimeType: string }> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = reader.result as string
-        const [prefix, data] = result.split(',') // "data:audio/webm;codecs=opus;base64", "<base64>"
-        const mimeType = prefix.match(/data:(.*);base64/)?.[1] || 'audio/webm'
-        resolve({ base64: data, mimeType })
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
-    })
-  }
-
 
   const base64ToBlob = (base64: string, mimeType: string): Blob => {
     try {
@@ -178,6 +223,13 @@ export const useRealtimeChat = () => {
   }
 
   const cleanup = () => {
+    if (userStatusRef) {
+      set(userStatusRef, {
+        state: 'offline',
+        lastChanged: serverTimestamp()
+      });
+    }
+
     disconnect()
   }
 
@@ -188,10 +240,10 @@ export const useRealtimeChat = () => {
   return {
     connect,
     disconnect,
-    sendMessage,
     sendVoiceMessage,
     connectionStatus,
     onlineUsers: computed(() => Object.values(onlineUsers.value)),
+    onOnlineUsersUpdated,
     base64ToBlob,
     cleanup,
   }
