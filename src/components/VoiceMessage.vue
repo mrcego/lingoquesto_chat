@@ -2,9 +2,9 @@
   import { computed, ref, watch } from 'vue';
   import type { VoiceMessage } from '@/types/chat';
   import { useVoicePlayer } from '@/composables/useVoicePlayer';
-  import { useRealtimeChat } from '@/composables/useRealtimeChat';
+  import { useChatStore } from '@/stores/chat.store';
 
-  const { base64ToBlob } = useRealtimeChat();
+  const chatStore = useChatStore();
 
   interface Props {
     message: VoiceMessage;
@@ -114,7 +114,7 @@
 <template>
   <v-card
     :class="['voice-message', { 'own-message': message.isOwn, 'other-message': !message.isOwn }]"
-    :color="message.isOwn ? 'secondary' : 'surface'"
+    :color="message.isOwn ? 'secondary' : 'accent'"
     :variant="message.isOwn ? 'flat' : 'outlined'"
     elevation="2"
   >
@@ -122,15 +122,15 @@
       <!-- Message Header -->
       <div class="d-flex justify-space-between align-center mb-2">
         <div class="d-flex align-center">
-          <v-avatar :color="message.isOwn ? 'surface' : 'primary'" size="24" class="mr-2">
+          <v-avatar :color="message.isOwn ? 'surface' : 'accent'" size="24" class="mr-2">
             <span :class="message.isOwn ? 'text-primary' : 'text-white'" style="font-size: 12px">
-              {{ message.nickname.charAt(0).toUpperCase() }}
+              {{ chatStore.user.initials }}
             </span>
           </v-avatar>
           <span
             :class="[
               'text-caption font-weight-medium',
-              message.isOwn ? 'text-surface' : 'text-primary',
+              message.isOwn ? 'text-surface' : 'text-accent',
             ]"
           >
             {{ message.isOwn ? 'Tú' : message.nickname }}
@@ -166,7 +166,7 @@
         </div>
 
         <!-- Duration -->
-        <span :class="['text-caption mr-2', message.isOwn ? 'text-surface' : 'text-grey-darken-1']">
+        <span :class="['text-caption mr-2', message.isOwn ? 'text-surface' : 'text-accent']">
           {{
             isPlaying
               ? `${voicePlayer.formatTime(Math.min(voicePlayer.currentTime.value, message.duration))} / `
