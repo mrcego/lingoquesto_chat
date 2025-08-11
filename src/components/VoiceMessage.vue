@@ -1,82 +1,84 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import type { VoiceMessage } from '@/types/chat';
-import { useVoicePlayer } from '@/composables/useVoicePlayer';
+  import type { VoiceMessage } from '@/types/chat';
+  import { useVoicePlayer } from '@/composables/useVoicePlayer';
+  import { useChatStore } from '@/stores/chat.store';
 
-interface Props {
-  message: VoiceMessage;
-}
-
-const props = defineProps<Props>();
-const voicePlayer = useVoicePlayer();
-
-const { currentTime } = voicePlayer;
-
-// Generate random waveform bars for visual effect
-const waveformBars = ref(Array.from({ length: 20 }, () => Math.random() * 100));
-
-const isPlaying = computed(() => voicePlayer.isMessagePlaying(props.message.id));
-
-// Validar y normalizar la duración del mensaje
-const messageDuration = computed(() => {
-  const dur = props.message.duration;
-  if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) {
-    return 1; // Duración mínima por defecto
+  interface Props {
+    message: VoiceMessage;
   }
-  return Math.round(dur);
-});
 
-// Validar y normalizar el tiempo actual
-const currentPlayTime = computed(() => {
-  const time = currentTime.value;
-  if (!time || isNaN(time) || !isFinite(time) || time < 0) {
-    return 0;
-  }
-  return Math.min(time, messageDuration.value);
-});
+  const chatStore = useChatStore();
 
-const progressBars = computed(() => {
-  if (!isPlaying.value || messageDuration.value === 0) return 0;
-  return Math.floor((currentPlayTime.value / messageDuration.value) * waveformBars.value.length);
-});
+  const props = defineProps<Props>();
+  const voicePlayer = useVoicePlayer();
 
-const togglePlayback = async () => {
-  if (isPlaying.value) {
-    voicePlayer.pauseAudio();
-  } else {
-    await voicePlayer.playAudio(props.message.audioUrl, props.message.id);
-  }
-};
+  const { currentTime } = voicePlayer;
 
-const setPlaybackSpeed = (speed: number) => {
-  voicePlayer.setPlaybackRate(speed);
-};
+  // Generate random waveform bars for visual effect
+  const waveformBars = ref(Array.from({ length: 20 }, () => Math.random() * 100));
 
-const formatTime = (date: Date): string => {
-  return new Intl.DateTimeFormat('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
-};
+  const isPlaying = computed(() => voicePlayer.isMessagePlaying(props.message.id));
 
-// Función para formatear duración en mm:ss
-const formatDuration = (seconds: number): string => {
-  if (!seconds || isNaN(seconds) || !isFinite(seconds)) {
-    return '0:01';
-  }
-  
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
+  // Validar y normalizar la duración del mensaje
+  const messageDuration = computed(() => {
+    const dur = props.message.duration;
+    if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) {
+      return 1; // Duración mínima por defecto
+    }
+    return Math.round(dur);
+  });
 
-// Watch for message changes to regenerate waveform
-watch(
-  () => props.message.id,
-  () => {
-    waveformBars.value = Array.from({ length: 20 }, () => Math.random() * 100);
-  }
-);
+  // Validar y normalizar el tiempo actual
+  const currentPlayTime = computed(() => {
+    const time = currentTime.value;
+    if (!time || isNaN(time) || !isFinite(time) || time < 0) {
+      return 0;
+    }
+    return Math.min(time, messageDuration.value);
+  });
+
+  const progressBars = computed(() => {
+    if (!isPlaying.value || messageDuration.value === 0) return 0;
+    return Math.floor((currentPlayTime.value / messageDuration.value) * waveformBars.value.length);
+  });
+
+  const togglePlayback = async () => {
+    if (isPlaying.value) {
+      voicePlayer.pauseAudio();
+    } else {
+      await voicePlayer.playAudio(props.message.audioUrl, props.message.id);
+    }
+  };
+
+  const setPlaybackSpeed = (speed: number) => {
+    voicePlayer.setPlaybackRate(speed);
+  };
+
+  const formatTime = (date: Date): string => {
+    return new Intl.DateTimeFormat('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  // Función para formatear duración en mm:ss
+  const formatDuration = (seconds: number): string => {
+    if (!seconds || isNaN(seconds) || !isFinite(seconds)) {
+      return '0:01';
+    }
+
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Watch for message changes to regenerate waveform
+  watch(
+    () => props.message.id,
+    () => {
+      waveformBars.value = Array.from({ length: 20 }, () => Math.random() * 100);
+    }
+  );
 </script>
 
 <template>
@@ -92,7 +94,7 @@ watch(
         <div class="d-flex align-center">
           <v-avatar :color="message.isOwn ? 'surface' : 'primary'" size="24" class="mr-2">
             <span :class="message.isOwn ? 'text-primary' : 'text-white'" style="font-size: 12px">
-              {{ message.nickname.charAt(0).toUpperCase() }}
+              {{ chatStore.userInitials }}
             </span>
           </v-avatar>
           <span
@@ -104,9 +106,7 @@ watch(
             {{ message.isOwn ? 'Tú' : message.nickname }}
           </span>
         </div>
-        <span
-          :class="['text-caption', message.isOwn ? 'text-surface' : 'text-accent']"
-        >
+        <span :class="['text-caption', message.isOwn ? 'text-surface' : 'text-accent']">
           {{ formatTime(message.timestamp) }}
         </span>
       </div>
@@ -136,12 +136,7 @@ watch(
         </div>
 
         <!-- Duration -->
-        <span
-          :class="[
-            'text-caption mr-2',
-            message.isOwn ? 'text-surface' : 'text-grey-darken-1',
-          ]"
-        >
+        <span :class="['text-caption mr-2', message.isOwn ? 'text-surface' : 'text-grey-darken-1']">
           {{
             isPlaying
               ? `${voicePlayer.formatTime(Math.min(voicePlayer.currentTime.value, message.duration))} / `

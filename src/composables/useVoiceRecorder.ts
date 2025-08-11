@@ -1,9 +1,11 @@
 import { ref, onUnmounted } from 'vue'
 import { useChatStore } from '@/stores/chat.store'
+import { useRealtimeChat } from '@/composables/useRealtimeChat'
 import type { VoiceMessage } from '@/types/chat'
 
 export const useVoiceRecorder = () => {
   const chatStore = useChatStore()
+  const realtimeChat = useRealtimeChat()
   
   // Estados
   const mediaRecorder = ref<MediaRecorder | null>(null)
@@ -315,6 +317,7 @@ export const useVoiceRecorder = () => {
       }
       
       chatStore.addMessage(message)
+      realtimeChat.sendVoiceMessage(message)
       console.log('Voice message created successfully with duration:', validatedDuration)
       
     } catch (error) {
@@ -381,7 +384,6 @@ export const useVoiceRecorder = () => {
     
     // Actualizar store
     chatStore.setRecordingState(false)
-    chatStore.resetRecordingDuration()
     
     // Detener pistas de audio
     if (audioStream.value) {

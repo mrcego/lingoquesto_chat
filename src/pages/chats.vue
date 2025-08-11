@@ -8,7 +8,7 @@
   const messagesContainer = ref<HTMLElement>();
 
   // Initialize realtime connection
-  useRealtimeChat();
+  const realtimeChat = useRealtimeChat();
 
   // Auto-scroll to bottom when new messages arrive
   watch(
@@ -24,8 +24,8 @@
 </script>
 
 <route lang="yaml">
-  meta:
-    layout: default
+meta:
+  layout: default
 </route>
 
 <template>

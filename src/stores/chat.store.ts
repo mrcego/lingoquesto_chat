@@ -45,17 +45,6 @@ export const useChatStore = defineStore('chat', () => {
   const addMessage = (message: VoiceMessage) => {
     messages.value.push(message)
     saveMessages()
-    
-    // Broadcast to other tabs/windows
-    const channel = new BroadcastChannel('voice-chat')
-    channel.postMessage({
-      type: 'NEW_MESSAGE',
-      message: {
-        ...message,
-        audioBlob: null, // Don't send blob through broadcast
-        audioUrl: message.audioUrl
-      }
-    })
   }
   
   const setRecordingState = (recording: boolean) => {
@@ -67,10 +56,6 @@ export const useChatStore = defineStore('chat', () => {
   
   const updateRecordingDuration = (duration: number) => {
     recordingDuration.value = duration
-  }
-  
-  const resetRecordingDuration = () => {
-    recordingDuration.value = 0
   }
   
   const loadMessages = () => {
@@ -115,6 +100,7 @@ export const useChatStore = defineStore('chat', () => {
     // Getters
     isUserLoggedIn,
     userNickname,
+    userInitials,
     sortedMessages,
     
     // Actions
@@ -123,7 +109,6 @@ export const useChatStore = defineStore('chat', () => {
     addMessage,
     setRecordingState,
     updateRecordingDuration,
-    resetRecordingDuration,
     loadMessages,
     saveMessages,
     initUser
