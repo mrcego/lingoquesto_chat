@@ -1,51 +1,52 @@
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
-  import type { VoiceMessage } from '@/types/chat';
   import { useVoicePlayer } from '@/composables/useVoicePlayer';
-  import { getInitials } from '@/utils';
 
-  interface Props {
-    message: VoiceMessage;
-  }
+  import type { VoiceMessage } from '@/types/chat';
 
-  const props = defineProps<Props>();
-  const voicePlayer = useVoicePlayer();
+  import { getInitials, formatTime } from '@/utils';
 
-  const { currentTime } = voicePlayer;
+  const props = defineProps<{ message: VoiceMessage }>();
+
+  // Composable to handle audio playback
+  const { currentTime, playbackRate, isMessagePlaying, playAudio, pauseAudio, setPlaybackRate } =
+    useVoicePlayer();
 
   // Generate random waveform bars for visual effect
   const waveformBars = ref(Array.from({ length: 20 }, () => Math.random() * 100));
 
-  const isPlaying = computed(() => voicePlayer.isMessagePlaying(props.message.id));
+  // Computed properties to calculate message duration and current play time
+  const isPlaying = computed(() => isMessagePlaying(props.message.id));
 
-  // Validar y normalizar la duración del mensaje
   const messageDuration = computed(() => {
-    const dur = props.message.duration;
-    if (!dur || isNaN(dur) || !isFinite(dur) || dur <= 0) {
-      return 1; // Duración mínima por defecto
+    const { duration } = props.message;
+    if (!duration || isNaN(duration) || !isFinite(duration) || duration <= 0) {
+      return 1; // Default duration
     }
-    return Math.round(dur);
+    return Math.round(duration);
   });
 
-  // Validar y normalizar el tiempo actual
+  // Computed property to calculate current play time
   const currentPlayTime = computed(() => {
     const time = currentTime.value;
     if (!time || isNaN(time) || !isFinite(time) || time < 0) {
-      return 0;
+      return 0; // Default play time
     }
     return Math.min(time, messageDuration.value);
   });
 
+  // Computed property to calculate progress bars
   const progressBars = computed(() => {
-    if (!isPlaying.value || messageDuration.value === 0) return 0;
+    if (!isPlaying.value || messageDuration.value === 0) return 0; // Default progress
     return Math.floor((currentPlayTime.value / messageDuration.value) * waveformBars.value.length);
   });
 
+  // Computed property to generate audio URL from base64 data
   const audioUrl = computed(() => {
     if (!props.message.audioData || typeof props.message.audioData !== 'string') {
       console.error('Invalid audio data:', props.message.audioData);
       return null;
     }
+
     try {
       const mimeType = props.message.mimeType || 'audio/webm';
       // Convert base64 back to Blob
@@ -63,26 +64,29 @@
     }
   });
 
-  // Don't forget to clean up the URL when the component is unmounted
+  // Clean up the URL when the component is unmounted
   onUnmounted(() => {
     if (audioUrl.value) {
       URL.revokeObjectURL(audioUrl.value);
     }
   });
 
+  // Toggle playback
   const togglePlayback = async () => {
     if (isPlaying.value) {
-      voicePlayer.pauseAudio();
+      pauseAudio();
     } else {
-      await voicePlayer.playAudio(audioUrl.value!, props.message.id);
+      await playAudio(audioUrl.value!, props.message.id);
     }
   };
 
+  // Set playback speed
   const setPlaybackSpeed = (speed: number) => {
-    voicePlayer.setPlaybackRate(speed);
+    setPlaybackRate(speed);
   };
 
-  const formatTime = (date: Date): string => {
+  // Format timestamp (Date) for message header
+  const formatTimestamp = (date: Date): string => {
     return new Intl.DateTimeFormat('es-ES', {
       hour: '2-digit',
       minute: '2-digit',
@@ -100,7 +104,7 @@
 
 <template>
   <v-card
-    :class="['voice-message', { 'own-message': message.isOwn, 'other-message': !message.isOwn }]"
+    :class="['voice-message', message.isOwn ? 'align-self-end ml-auto' : 'align-self-start']"
     :color="message.isOwn ? 'secondary' : 'accent'"
     :variant="message.isOwn ? 'flat' : 'outlined'"
     elevation="2"
@@ -124,7 +128,7 @@
           </span>
         </div>
         <span :class="['text-caption', message.isOwn ? 'text-surface' : 'text-accent']">
-          {{ formatTime(message.timestamp as Date) }}
+          {{ formatTimestamp(new Date(message.timestamp as string)) }}
         </span>
       </div>
 
@@ -141,7 +145,7 @@
         />
 
         <!-- Waveform Placeholder -->
-        <div class="waveform-container flex-grow-1 mr-3">
+        <div class="d-flex align-center flex-grow-1 mr-3" style="height: 32px">
           <div class="waveform">
             <div
               v-for="(bar, index) in waveformBars"
@@ -154,11 +158,8 @@
 
         <!-- Duration -->
         <span :class="['text-caption mr-2', message.isOwn ? 'text-surface' : 'text-accent']">
-          {{
-            isPlaying
-              ? `${voicePlayer.formatTime(Math.min(voicePlayer.currentTime.value, message.duration))} / `
-              : ''
-          }}{{ message.duration ? voicePlayer.formatTime(message.duration) : '-' }}
+          {{ isPlaying ? `${formatTime(Math.min(currentTime, message.duration))} / ` : ''
+          }}{{ message.duration ? formatTime(message.duration) : '-' }}
         </span>
 
         <!-- Speed Control -->
@@ -171,7 +172,7 @@
               size="small"
               class="text-caption"
             >
-              {{ voicePlayer.playbackRate }}x
+              {{ playbackRate }}x
               <v-icon size="small">mdi-chevron-down</v-icon>
             </v-btn>
           </template>
@@ -180,7 +181,7 @@
               v-for="speed in [1, 1.5, 2]"
               :key="speed"
               @click="setPlaybackSpeed(speed)"
-              :active="voicePlayer.playbackRate.value === speed"
+              :active="playbackRate === speed"
             >
               <v-list-item-title>{{ speed }}x</v-list-item-title>
             </v-list-item>
@@ -196,21 +197,6 @@
     margin-bottom: 12px;
     max-width: 85%;
     border-radius: 16px !important;
-  }
-
-  .own-message {
-    align-self: flex-end;
-    margin-left: auto;
-  }
-
-  .other-message {
-    align-self: flex-start;
-  }
-
-  .waveform-container {
-    height: 32px;
-    display: flex;
-    align-items: center;
   }
 
   .waveform {

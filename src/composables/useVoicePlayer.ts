@@ -1,20 +1,4 @@
-import { ref, type Ref } from 'vue'
-
-interface VoicePlayerReturn {
-  currentAudio: Ref<HTMLAudioElement | null>
-  isPlaying: Ref<boolean>
-  currentMessageId: Ref<string | null>
-  playbackRate: Ref<number>
-  currentTime: Ref<number>
-  duration: Ref<number>
-  playAudio: (audioUrl: string, messageId: string) => Promise<void>
-  pauseAudio: () => void
-  stopAudio: () => void
-  resumeAudio: () => Promise<void>
-  setPlaybackRate: (rate: number) => void
-  isMessagePlaying: (messageId: string) => boolean
-  formatTime: (seconds: number) => string
-}
+import type { VoicePlayerReturn } from "@/types/player"
 
 export const useVoicePlayer = (): VoicePlayerReturn => {
   // Refs
@@ -105,12 +89,6 @@ export const useVoicePlayer = (): VoicePlayerReturn => {
     return currentMessageId.value === messageId && isPlaying.value
   }
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
   return {
     currentAudio,
     isPlaying,
@@ -123,7 +101,6 @@ export const useVoicePlayer = (): VoicePlayerReturn => {
     pauseAudio,
     resumeAudio,
     setPlaybackRate,
-    isMessagePlaying,
-    formatTime
+    isMessagePlaying
   }
 }

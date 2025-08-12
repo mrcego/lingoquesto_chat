@@ -1,22 +1,26 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue';
-  import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
   import { useChatStore } from '@/stores/chat.store';
 
-  const voiceRecorder = useVoiceRecorder();
-  const chatStore = useChatStore();
+  import { useVoiceRecorder } from '@/composables/useVoiceRecorder';
 
-  // Estados locales
+  import { formatTime } from '@/utils';
+
+  const chatStore = useChatStore();
+  const { isRecording, recordingDuration } = storeToRefs(chatStore);
+
+  const { startRecording, stopRecording, forceStop } = useVoiceRecorder();
+
+  // Local states
   const showPermissionError = ref(false);
   const showValidationError = ref(false);
 
-  // Estados reactivos desde el store
-  const isRecording = computed(() => chatStore.isRecording);
-  const recordingDuration = computed(() => chatStore.recordingDuration);
+  const emit = defineEmits<{ onError: [] }>();
 
-  const emit = defineEmits(['on-error']);
-
-  const startRecording = async (e?: Event) => {
+  /**
+   * Starts recording audio
+   * @param {Event} e - Optional event parameter
+   */
+  const onStartRecording = async (e?: Event) => {
     e?.preventDefault();
 
     if (isRecording.value) return;
@@ -25,36 +29,34 @@
     showPermissionError.value = false;
     showValidationError.value = false;
 
-    const success = await voiceRecorder.startRecording();
+    const success = await startRecording();
 
     console.log(success);
     if (!success) {
       showPermissionError.value = true;
-      emit('on-error');
+      emit('onError');
     }
   };
 
-  const stopRecording = async (e?: Event) => {
+  /**
+   * Stops recording audio
+   * @param {Event} e - Optional event parameter
+   */
+  const onStopRecording = async (e?: Event) => {
     e?.preventDefault();
 
     console.log('stopRecording');
 
-    // Primero intentar parada normal
-    await voiceRecorder.stopRecording();
+    // Try to stop recording normally
+    await stopRecording();
 
-    // Si después de 500ms aún está grabando, forzar parada
+    // If recording is still active after 500ms, force stop it
     setTimeout(async () => {
       if (isRecording.value) {
         console.log('Force stopping as backup');
-        await voiceRecorder.forceStop();
+        await forceStop();
       }
     }, 500);
-  };
-
-  const formatRecordingTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 </script>
 
@@ -76,12 +78,12 @@
           <div class="recording-timer mb-3">
             <v-chip color="error" variant="flat" size="small" class="timer-chip">
               <v-icon start size="small">mdi-timer</v-icon>
-              {{ formatRecordingTime(recordingDuration) }} / 0:30
+              {{ formatTime(recordingDuration) }} / 0:30
             </v-chip>
           </div>
         </div>
 
-        <!-- Record Button - Optimizado -->
+        <!-- Record Button -->
         <div class="button-container">
           <v-btn
             :color="isRecording ? 'error' : 'primary'"
@@ -89,10 +91,10 @@
             size="large"
             elevation="4"
             class="record-button"
-            @mousedown="startRecording"
-            @mouseup="stopRecording"
-            @touchstart.prevent="startRecording"
-            @touchend.prevent="stopRecording"
+            @mousedown="onStartRecording"
+            @mouseup="onStopRecording"
+            @touchstart.prevent="onStartRecording"
+            @touchend.prevent="onStopRecording"
           />
         </div>
 
@@ -139,7 +141,7 @@
 
 <style scoped>
   .voice-recorder-wrapper {
-    /* Contenedor principal con altura fija */
+    /* Main container with fixed height */
     height: 230px;
     min-height: 230px;
     max-height: 230px;
@@ -267,7 +269,7 @@
     }
   }
 
-  /* Para pantallas muy pequeñas, ocultar algunos elementos para ahorrar espacio */
+  /* For very small screens, hide some elements to save space */
   @media (max-height: 400px) {
     .text-caption:not(.instruction-text) {
       display: none;

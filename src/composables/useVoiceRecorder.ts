@@ -1,6 +1,7 @@
-import { ref, onUnmounted } from 'vue'
 import { useChatStore } from '@/stores/chat.store'
+
 import { useRealtimeChat } from '@/composables/useRealtimeChat'
+
 import type { VoiceMessage } from '@/types/chat'
 
 export const useVoiceRecorder = () => {
@@ -30,7 +31,7 @@ export const useVoiceRecorder = () => {
       // Limpiar estado previo
       await cleanup()
 
-      // Solicitar acceso al micrófono con configuraciones MEJORADAS
+      // Solicitar acceso al micrófono
       console.log('Requesting microphone access...')
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -570,7 +571,5 @@ export const useVoiceRecorder = () => {
     startRecording,
     stopRecording,
     forceStop,
-    isRecording: chatStore.isRecording,
-    recordingDuration: chatStore.recordingDuration
   }
 }
