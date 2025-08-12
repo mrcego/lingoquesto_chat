@@ -5,7 +5,7 @@
   import { getInitials } from '@/utils';
 
   const chatStore = useChatStore();
-  const realtimeChat = useRealtimeChat();
+  const { connectionStatus, onOnlineUsersUpdated, connect } = useRealtimeChat();
 
   const drawer = ref(true);
   const snackbar = ref(false);
@@ -22,7 +22,7 @@
     }
 
     console.log('🎧 Setting up users listener...');
-    unsubscribe = realtimeChat.onOnlineUsersUpdated((users) => {
+    unsubscribe = onOnlineUsersUpdated((users) => {
       console.log(
         '👥 Users update received:',
         users.map((u) => `${u.nickname}: ${u.online ? '🟢' : '🔴'}`)
@@ -45,7 +45,7 @@
       setupUsersListener();
 
       // Conectar
-      await realtimeChat.connect();
+      await connect();
       isConnected.value = true;
 
       console.log('✅ User connected successfully');
@@ -75,7 +75,7 @@
 
   // Observar el estado de conexión
   watch(
-    () => realtimeChat.connectionStatus.value,
+    () => connectionStatus.value,
     (status) => {
       console.log('🔗 Connection status changed:', status);
       isConnected.value = status === 'connected';
@@ -125,7 +125,7 @@
             {{
               isConnected
                 ? 'En línea'
-                : realtimeChat.connectionStatus.value === 'connecting'
+                : connectionStatus === 'connecting'
                   ? 'Conectando...'
                   : 'Desconectado'
             }}
