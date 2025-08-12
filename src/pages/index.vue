@@ -1,21 +1,31 @@
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
   import { useChatStore } from '@/stores/chat.store';
 
   import { useRealtimeChat } from '@/composables/useRealtimeChat';
 
+  // The chat store
   const chatStore = useChatStore();
+  // The login function from the chat store
+  const { login } = chatStore;
 
+  // The connect function from the useRealtimeChat composable
   const { connect } = useRealtimeChat();
 
+  // The name input field
   const name = ref('');
+  // The lastname input field
   const lastname = ref('');
 
+  // The error message to display
   const errorMessage = ref('');
+  // Whether the login button is loading
   const isLoading = ref(false);
+  // Whether the browser supports audio
   const hasAudioSupport = ref(true);
+  // The form element
   const form = ref();
 
+  // The rules for the name and lastname fields
   const fieldRules = [
     (v: string) => !!v || 'Debes ingresar información aquí  ',
     (v: string) => (v && v.length >= 2) || 'Mínimo 2 caracteres',
@@ -23,11 +33,15 @@
     (v: string) => /^[a-zA-Z0-9_\-\s]+$/.test(v) || 'Solo letras, números, guiones y espacios',
   ];
 
+  // The function to handle the login form submission
   const handleLogin = async () => {
+    // Validate the form
     const { valid } = await form.value.validate();
     if (!valid) return;
 
+    // Clear any previous error messages
     errorMessage.value = '';
+    // Set the loading state
     isLoading.value = true;
 
     try {
@@ -35,14 +49,17 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
 
-      chatStore.login(`${name.value.trim()} ${lastname.value.trim()}`);
+      // Login with the username
+      login(`${name.value.trim()} ${lastname.value.trim()}`);
 
       // Connect to Firebase after successful login
       await connect();
     } catch (error) {
+      // Display any error messages
       errorMessage.value = 'Error al acceder al micrófono. Por favor, permite el acceso.';
       console.error('Microphone access error:', error);
     } finally {
+      // Clear the loading state
       isLoading.value = false;
     }
   };

@@ -1,50 +1,75 @@
 <script lang="ts" setup>
-  import { useAppTheme } from '@/composables/useAppTheme';
+  /**
+   * This component is the main layout of the app.
+   * It contains the navigation drawer with the list of online users,
+   * the app bar with the theme toggle button, and the main content area.
+   */
+
   import { useChatStore } from '@/stores/chat.store';
+
+  import { useAppTheme } from '@/composables/useAppTheme';
   import { useRealtimeChat } from '@/composables/useRealtimeChat';
+
   import { getInitials } from '@/utils';
 
   const chatStore = useChatStore();
+  const { userNickname, onlineUsers } = storeToRefs(chatStore);
+
+  const { currentThemeName, toggleTheme } = useAppTheme();
   const { connectionStatus, onOnlineUsersUpdated, connect } = useRealtimeChat();
 
+  /**
+   * Whether the navigation drawer is open or not
+   */
   const drawer = ref(true);
+
+  /**
+   * Whether the snackbar is open or not
+   */
   const snackbar = ref(false);
+
+  /**
+   * Whether the user is connected or not
+   */
   const isConnected = ref(false);
 
   let unsubscribe: (() => void) | null = null;
 
-  const { currentThemeName, toggleTheme } = useAppTheme();
-
-  // Configurar el listener de usuarios
+  /**
+   * Sets up the listener for online users
+   */
   const setupUsersListener = () => {
     if (unsubscribe) {
       unsubscribe();
     }
 
-    console.log('🎧 Setting up users listener...');
+    console.log('Setting up users listener...');
+
     unsubscribe = onOnlineUsersUpdated((users) => {
       console.log(
         '👥 Users update received:',
-        users.map((u) => `${u.nickname}: ${u.online ? '🟢' : '🔴'}`)
+        users.map((user) => `${user.nickname}: ${user.online ? '🟢' : '🔴'}`)
       );
       chatStore.setOnlineUsers(users);
     });
   };
 
-  // Conectar al usuario
+  /**
+   * Connects the user to the Firebase Realtime Database
+   */
   const connectUser = async () => {
-    if (!chatStore.userNickname) {
+    if (!userNickname.value) {
       console.log('❌ No user nickname available for connection');
       return;
     }
 
     try {
-      console.log('🔌 Connecting user:', chatStore.userNickname);
+      console.log('🔌 Connecting user:', userNickname.value);
 
-      // Configurar listener ANTES de conectar
+      // Set up listener BEFORE connecting
       setupUsersListener();
 
-      // Conectar
+      // Connect
       await connect();
       isConnected.value = true;
 
@@ -55,7 +80,7 @@
     }
   };
 
-  // Observar cambios en el estado de login
+  // Watch for changes in the login status
   watch(
     () => chatStore.isUserLoggedIn,
     (isLoggedIn) => {
@@ -73,7 +98,7 @@
     { immediate: true }
   );
 
-  // Observar el estado de conexión
+  // Watch for changes in the connection status
   watch(
     () => connectionStatus.value,
     (status) => {
@@ -82,6 +107,7 @@
     }
   );
 
+  // Clean up the listener when the component is unmounted
   onUnmounted(() => {
     if (unsubscribe) {
       unsubscribe();
@@ -90,19 +116,21 @@
 </script>
 
 <template>
+  <!-- This is the main layout of the app -->
   <v-layout>
+    <!-- Navigation drawer -->
     <v-navigation-drawer v-model="drawer" color="background">
       <v-list density="compact" nav>
         <v-list-subheader>Usuarios en línea</v-list-subheader>
         <v-list-item
-          v-for="user in chatStore.onlineUsers"
+          v-if="onlineUsers.length > 0"
+          v-for="user in onlineUsers"
           :key="user.nickname"
           :title="user.nickname"
           :subtitle="user.online ? 'En línea' : 'Desconectado'"
-          :class="{ 'bg-grey-lighten-4': user.nickname === chatStore.userNickname }"
         >
           <template v-slot:prepend>
-            <v-badge color="green" dot :model-value="user.online" offset-x="-3" offset-y="-3">
+            <v-badge color="green" dot :model-value="user.online" offset="-3">
               <v-avatar size="40" color="accent">
                 <span class="text-white">
                   {{ getInitials(user.nickname) }}
@@ -111,16 +139,20 @@
             </v-badge>
           </template>
         </v-list-item>
+
+        <v-list-item v-else>
+          <v-list-item-title class="text-center">Sólo tú estás en línea</v-list-item-title>
+        </v-list-item>
       </v-list>
 
       <template #prepend>
         <v-sheet class="pa-6 ga-1 align-center justify-center d-flex flex-column">
           <v-badge color="green" dot :model-value="isConnected">
             <v-avatar size="64" color="secondary">
-              <span class="text-h5 text-background">{{ getInitials(chatStore.userNickname) }}</span>
+              <span class="text-h5 text-background">{{ getInitials(userNickname) }}</span>
             </v-avatar>
           </v-badge>
-          <span class="text-subtitle-1 font-weight-medium">{{ chatStore.userNickname }}</span>
+          <span class="text-subtitle-1 font-weight-medium">{{ userNickname }}</span>
           <span class="text-caption text-medium-emphasis">
             {{
               isConnected
@@ -145,6 +177,7 @@
       </template>
     </v-navigation-drawer>
 
+    <!-- App bar -->
     <v-app-bar border="b" class="ps-4" flat color="background">
       <v-app-bar-nav-icon @click="drawer = !drawer" />
 
@@ -157,13 +190,17 @@
         </v-btn>
       </template>
     </v-app-bar>
+
+    <!-- Main content area -->
     <v-main>
       <router-view @on-error="snackbar = true" />
     </v-main>
 
+    <!-- Footer -->
     <AppFooter />
   </v-layout>
 
+  <!-- Snackbar -->
   <v-snackbar v-model="snackbar" location="top center" variant="elevated" color="info">
     <div class="text-subtitle-1 pb-2">¡Ups!</div>
 

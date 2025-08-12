@@ -3,15 +3,18 @@
   import { db } from '@/firebase';
 
   import { useChatStore } from '@/stores/chat.store';
+
   import VoiceMessage from '@/components/VoiceMessage.vue';
   import VoiceRecorder from '@/components/VoiceRecorder.vue';
 
   const chatStore = useChatStore();
+  const { messages } = storeToRefs(chatStore);
+
   const messagesContainer = ref<HTMLElement>();
 
   // Auto-scroll to bottom when new messages arrive
   watch(
-    () => chatStore.messages.length,
+    () => messages.value.length,
     async () => {
       await nextTick();
       if (messagesContainer.value) {
@@ -37,7 +40,7 @@ meta:
     <!-- Messages Container -->
     <div class="messages-container flex-grow-1" ref="messagesContainer">
       <v-container class="py-4">
-        <div v-if="chatStore.sortedMessages.length === 0" class="empty-state">
+        <div v-if="messages.length === 0" class="empty-state">
           <div class="text-center">
             <v-icon color="grey-lighten-1" size="64">mdi-chat-outline</v-icon>
             <h3 class="text-h6 mt-4 text-grey-darken-1">No hay mensajes aún</h3>
@@ -47,7 +50,7 @@ meta:
 
         <div v-else class="messages-list">
           <VoiceMessage
-            v-for="message in chatStore.sortedMessages"
+            v-for="message in messages"
             :key="message.id"
             :message="message"
             class="message-item"
