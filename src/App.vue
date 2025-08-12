@@ -8,7 +8,11 @@
 
 <script lang="ts" setup>
   import { useChatStore } from '@/stores/chat.store';
+  import { useRealtimeChat } from '@/composables/useRealtimeChat';
+
   const chatStore = useChatStore();
+
+  const realtimeChat = useRealtimeChat();
 
   const isUserLoggedIn = computed(() => chatStore.isUserLoggedIn);
 
@@ -22,7 +26,19 @@
     { immediate: true }
   );
 
-  chatStore.initUser();
+  onMounted(async () => {
+    // Initialize user from localStorage
+    const userInitialized = chatStore.initUser();
+
+    if (userInitialized) {
+      // Reconnect to Firebase
+      await realtimeChat.connect();
+    }
+  });
+
+  onBeforeUnmount(() => {
+    realtimeChat.cleanup();
+  });
 </script>
 
 <style>

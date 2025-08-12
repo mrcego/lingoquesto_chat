@@ -2,9 +2,7 @@
   import { computed, ref, watch } from 'vue';
   import type { VoiceMessage } from '@/types/chat';
   import { useVoicePlayer } from '@/composables/useVoicePlayer';
-  import { useChatStore } from '@/stores/chat.store';
-
-  const chatStore = useChatStore();
+  import { getInitials } from '@/utils';
 
   interface Props {
     message: VoiceMessage;
@@ -89,17 +87,6 @@
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
-  };
-
-  const getInitials = (name: string): string => {
-    if (!name) return '?';
-    const names = name.split(' ');
-    let initials = names[0].charAt(0).toUpperCase();
-    if (names.length > 1) {
-      // Take the first character of the first word and first character of the second word
-      initials = names[0].charAt(0).toUpperCase() + names[1].charAt(0).toUpperCase();
-    }
-    return initials;
   };
 
   // Watch for message changes to regenerate waveform

@@ -16,8 +16,7 @@ export const useChatStore = defineStore('chat', () => {
   const onlineUsers = ref<Array<{
     nickname: string
     online: boolean
-    lastSeen?: Date
-    isCurrentUser: boolean
+    lastChanged?: Date
   }>>([])
 
   // Getters
@@ -32,24 +31,47 @@ export const useChatStore = defineStore('chat', () => {
     })
   )
 
+  // Computed para filtrar usuarios online (excluyendo al usuario actual)
+  const otherOnlineUsers = computed(() =>
+    onlineUsers.value.filter(u => u.nickname !== userNickname.value)
+  )
+
   // Actions
   const login = (nickname: string) => {
+    const trimmedNickname = nickname.trim()
+    const nameParts = trimmedNickname.split(' ')
+
     user.value = {
-      nickname: nickname.trim(),
-      initials: `${nickname.trim().split(' ')[0].charAt(0).toUpperCase()}${nickname.trim().split(' ')[1].charAt(0).toUpperCase()}`,
+      nickname: trimmedNickname,
+      initials: nameParts.length >= 2
+        ? `${nameParts[0].charAt(0).toUpperCase()}${nameParts[1].charAt(0).toUpperCase()}`
+        : `${nameParts[0].charAt(0).toUpperCase()}${nameParts[0].charAt(1)?.toUpperCase() || ''}`,
       isLoggedIn: true
     }
+
     localStorage.setItem('user', JSON.stringify(user.value))
     loadMessages()
   }
 
-  const logout = () => {
+  const logout = async () => {
+    // Importar useRealtimeChat aquí para evitar problemas de timing
+    const { useRealtimeChat } = await import('@/composables/useRealtimeChat')
+    const realtimeChat = useRealtimeChat()
+
+    console.log('🔌 Disconnecting user:', user.value.nickname)
+    realtimeChat.disconnect()
+
+    // Limpiar estado
     user.value = {
       nickname: '',
       initials: '',
       isLoggedIn: false
     }
+    messages.value = []
+    onlineUsers.value = []
+
     localStorage.removeItem('user')
+    console.log('✅ User logged out and disconnected')
   }
 
   const addMessage = (message: VoiceMessage) => {
@@ -91,7 +113,6 @@ export const useChatStore = defineStore('chat', () => {
     saveMessages(); // Save to localStorage
   }
 
-  // In your chat store
   const saveMessages = () => {
     try {
       const messagesToSave = messages.value.map(msg => {
@@ -117,22 +138,41 @@ export const useChatStore = defineStore('chat', () => {
   const initUser = () => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
-      user.value = JSON.parse(savedUser)
-      if (user.value.isLoggedIn) {
-        loadMessages()
+      try {
+        user.value = JSON.parse(savedUser)
+        if (user.value.isLoggedIn && user.value.nickname) {
+          console.log('🔄 Restoring user session:', user.value.nickname)
+          // Load messages from localStorage first for instant display
+          loadMessages()
+          return true
+        }
+      } catch (error) {
+        console.error('Error parsing saved user:', error)
+        localStorage.removeItem('user')
       }
     }
+    return false
   }
 
   const setOnlineUsers = (users: Array<{
     nickname: string
     online: boolean
     lastChanged?: Date
-    isCurrentUser?: boolean
   }>) => {
-    console.log('Setting online users:', users)
+    console.log('📊 Setting online users in store:', users.map(u => `${u.nickname}: ${u.online ? '🟢' : '🔴'}`))
     onlineUsers.value = users
   }
+
+  // Método para obtener el estado de conexión de un usuario específico
+  const isUserOnline = (nickname: string): boolean => {
+    const foundUser = onlineUsers.value.find(u => u.nickname === nickname)
+    return foundUser?.online || false
+  }
+
+  // Método para obtener la cantidad de usuarios online
+  const getOnlineUsersCount = computed(() =>
+    onlineUsers.value.filter(u => u.online).length
+  )
 
   return {
     // State
@@ -140,12 +180,14 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     isRecording,
     recordingDuration,
+    onlineUsers: otherOnlineUsers,
 
     // Getters
     isUserLoggedIn,
     userNickname,
     userInitials,
     sortedMessages,
+    getOnlineUsersCount,
 
     // Actions
     login,
@@ -156,7 +198,7 @@ export const useChatStore = defineStore('chat', () => {
     loadMessages,
     setMessages,
     initUser,
-    onlineUsers: computed(() => onlineUsers.value),
-    setOnlineUsers
+    setOnlineUsers,
+    isUserOnline
   }
 })

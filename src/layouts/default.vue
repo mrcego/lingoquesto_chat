@@ -2,24 +2,91 @@
   import { useAppTheme } from '@/composables/useAppTheme';
   import { useChatStore } from '@/stores/chat.store';
   import { useRealtimeChat } from '@/composables/useRealtimeChat';
+  import { getInitials } from '@/utils';
 
   const chatStore = useChatStore();
   const realtimeChat = useRealtimeChat();
 
   const drawer = ref(true);
+  const snackbar = ref(false);
+  const isConnected = ref(false);
 
-  const unsubscribe = realtimeChat.onOnlineUsersUpdated((users) => {
-    console.log(users);
-    chatStore.setOnlineUsers(users);
-  });
-
-  onUnmounted(() => {
-    if (unsubscribe) unsubscribe();
-  });
+  let unsubscribe: (() => void) | null = null;
 
   const { currentThemeName, toggleTheme } = useAppTheme();
 
-  const snackbar = ref(false);
+  // Configurar el listener de usuarios
+  const setupUsersListener = () => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+
+    console.log('🎧 Setting up users listener...');
+    unsubscribe = realtimeChat.onOnlineUsersUpdated((users) => {
+      console.log(
+        '👥 Users update received:',
+        users.map((u) => `${u.nickname}: ${u.online ? '🟢' : '🔴'}`)
+      );
+      chatStore.setOnlineUsers(users);
+    });
+  };
+
+  // Conectar al usuario
+  const connectUser = async () => {
+    if (!chatStore.userNickname) {
+      console.log('❌ No user nickname available for connection');
+      return;
+    }
+
+    try {
+      console.log('🔌 Connecting user:', chatStore.userNickname);
+
+      // Configurar listener ANTES de conectar
+      setupUsersListener();
+
+      // Conectar
+      await realtimeChat.connect();
+      isConnected.value = true;
+
+      console.log('✅ User connected successfully');
+    } catch (error) {
+      console.error('❌ Connection failed:', error);
+      isConnected.value = false;
+    }
+  };
+
+  // Observar cambios en el estado de login
+  watch(
+    () => chatStore.isUserLoggedIn,
+    (isLoggedIn) => {
+      console.log('👤 User login status changed:', isLoggedIn);
+      if (isLoggedIn && chatStore.userNickname) {
+        connectUser();
+      } else if (!isLoggedIn) {
+        isConnected.value = false;
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+      }
+    },
+    { immediate: true }
+  );
+
+  // Observar el estado de conexión
+  watch(
+    () => realtimeChat.connectionStatus.value,
+    (status) => {
+      console.log('🔗 Connection status changed:', status);
+      isConnected.value = status === 'connected';
+    }
+  );
+
+  onUnmounted(() => {
+    if (unsubscribe) {
+      unsubscribe();
+    }
+  });
 </script>
 
 <template>
@@ -35,16 +102,10 @@
           :class="{ 'bg-grey-lighten-4': user.nickname === chatStore.userNickname }"
         >
           <template v-slot:prepend>
-            <v-badge color="success" dot :model-value="user.online" offset-x="-5" offset-y="-5">
-              <v-avatar size="40" color="primary">
+            <v-badge color="green" dot :model-value="user.online" offset-x="-3" offset-y="-3">
+              <v-avatar size="40" color="accent">
                 <span class="text-white">
-                  {{
-                    user.nickname
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()
-                  }}
+                  {{ getInitials(user.nickname) }}
                 </span>
               </v-avatar>
             </v-badge>
@@ -54,12 +115,21 @@
 
       <template #prepend>
         <v-sheet class="pa-6 ga-1 align-center justify-center d-flex flex-column">
-          <v-badge color="green" dot>
+          <v-badge color="green" dot :model-value="isConnected">
             <v-avatar size="64" color="secondary">
-              <span class="text-h5 text-background">{{ chatStore.user.initials }}</span>
+              <span class="text-h5 text-background">{{ getInitials(chatStore.userNickname) }}</span>
             </v-avatar>
           </v-badge>
-          <span class="text-subtitle-1 font-weight-medium">{{ chatStore.user.nickname }}</span>
+          <span class="text-subtitle-1 font-weight-medium">{{ chatStore.userNickname }}</span>
+          <span class="text-caption text-medium-emphasis">
+            {{
+              isConnected
+                ? 'En línea'
+                : realtimeChat.connectionStatus.value === 'connecting'
+                  ? 'Conectando...'
+                  : 'Desconectado'
+            }}
+          </span>
         </v-sheet>
       </template>
 

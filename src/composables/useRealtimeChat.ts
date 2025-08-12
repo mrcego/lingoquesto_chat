@@ -20,37 +20,41 @@ export const useRealtimeChat = () => {
   const onlineUsers = ref<{ [key: string]: string }>({})
   const userStatusRef = dbRef(db, 'status')
 
+  let messageListener: (() => void) | null = null
+  let statusListener: (() => void) | null = null
+
   const updateUserStatus = async (isOnline: boolean) => {
     if (!chatStore.userNickname) {
       console.log('No user nickname available')
       return
     }
 
-    const userStatusPath = `status/${chatStore.userNickname.replace('.', ',')}`
+    const normalizedNickname = chatStore.userNickname.replace(/\./g, ',')
+    const userStatusPath = `status/${normalizedNickname}`
     const userStatusRef = dbRef(db, userStatusPath)
 
     try {
-      if (isOnline) {
-        await push(userStatusRef, {
-          status: 'online',
-          lastChanged: serverTimestamp(),
-          nickname: chatStore.userNickname
-        })
+      const statusData = {
+        state: isOnline ? 'online' : 'offline',
+        lastChanged: serverTimestamp(),
+        nickname: chatStore.userNickname
+      }
 
+      console.log(`Setting user status to ${isOnline ? 'online' : 'offline'} for:`, chatStore.userNickname)
+
+      await set(userStatusRef, statusData)
+
+      if (isOnline) {
+        // Only set onDisconnect when going online
         onDisconnectRef(userStatusRef).set({
-          status: 'offline',
-          lastChanged: serverTimestamp(),
-          nickname: chatStore.userNickname
-        })
-      } else {
-        await push(userStatusRef, {
-          status: 'offline',
+          state: 'offline',
           lastChanged: serverTimestamp(),
           nickname: chatStore.userNickname
         })
       }
     } catch (error) {
       console.error('Error updating user status:', error)
+      throw error
     }
   }
 
@@ -62,38 +66,51 @@ export const useRealtimeChat = () => {
     const statusRef = dbRef(db, 'status')
     console.log('Setting up online users listener...')
 
-    const listener = onValue(statusRef, (snapshot) => {
+    statusListener = onValue(statusRef, (snapshot) => {
       const statusData = snapshot.val() || {}
-      console.log('Raw status data:', statusData)
+      console.log('Raw status data received:', statusData)
 
       const users = Object.entries(statusData)
-        .map(([_, data]: [string, any]) => {
+        .map(([key, data]: [string, any]) => {
           if (!data || typeof data !== 'object') {
+            console.warn('Invalid data for key:', key, data)
             return null
           }
 
-          // Use stored nickname if available, otherwise use the key
-          const nickname = data.nickname || data.nickname
+          // Usar el nickname almacenado en los datos
+          const nickname = data.nickname
           if (!nickname) {
-            console.warn('User data missing nickname:', data)
+            console.warn('User data missing nickname:', key, data)
             return null
           }
+
+          const isOnline = data.state === 'online'
+          console.log(`User ${nickname}: ${isOnline ? 'ONLINE' : 'OFFLINE'} (state: ${data.state})`)
 
           return {
             nickname: nickname,
-            online: data.state === 'online',
+            online: isOnline,
             lastChanged: data.lastChanged ? new Date(data.lastChanged) : undefined
           }
         })
-        .filter(Boolean)
+        .filter(Boolean) as Array<{
+          nickname: string
+          online: boolean
+          lastChanged?: Date
+        }>
 
-      console.log('Processed users:', users)
+      console.log('Final processed users:', users.map(u => `${u.nickname}: ${u.online ? 'ONLINE' : 'OFFLINE'}`))
       callback(users)
+    }, (error) => {
+      console.error('Error listening to status updates:', error)
     })
 
     return () => {
       console.log('Cleaning up online users listener')
-      off(statusRef, 'value', listener)
+      if (statusListener) {
+        off(statusRef, 'value', statusListener)
+        statusListener = null
+      }
     }
   }
 
@@ -107,49 +124,47 @@ export const useRealtimeChat = () => {
         throw new Error('No nickname provided')
       }
 
-      // Normalize the nickname for Firebase key
-      const normalizedNickname = nickname.replace(/\./g, ',')
-      const userStatusRef = dbRef(db, `status/${normalizedNickname}`)
+      console.log('Connecting with nickname:', nickname)
+
+      // First, set up the connection state monitoring
       const userStatusDatabaseRef = dbRef(db, '.info/connected')
 
-      console.log('Connecting with nickname:', nickname, 'Normalized:', normalizedNickname)
+      // Set up connection monitoring BEFORE setting status
+      const connectionListener = onValue(userStatusDatabaseRef, async (snapshot) => {
+        const isConnected = snapshot.val()
+        console.log('Firebase connection status:', isConnected)
 
-      // Set up the onDisconnect first
-      await set(userStatusRef, {
-        state: 'online',
-        nickname: nickname,
-        lastChanged: serverTimestamp()
-      });
-
-      // Then set up the onDisconnect handler
-      onDisconnectRef(userStatusRef).set({
-        state: 'offline',
-        nickname: nickname,
-        lastChanged: serverTimestamp()
-      });
-
-      // Monitor connection state
-      onValue(userStatusDatabaseRef, (snapshot) => {
-        if (snapshot.val() === false) {
-          connectionStatus.value = 'disconnected';
-          return;
+        if (isConnected) {
+          console.log('Connected to Firebase, setting online status...')
+          try {
+            await updateUserStatus(true)
+            connectionStatus.value = 'connected'
+            console.log('Successfully set online status')
+          } catch (error) {
+            console.error('Error setting online status:', error)
+          }
+        } else {
+          console.log('Disconnected from Firebase')
+          connectionStatus.value = 'disconnected'
         }
+      })
 
-        // When we connect, set our online status
-        set(userStatusRef, {
-          state: 'online',
-          nickname: nickname,
-          lastChanged: serverTimestamp()
-        });
-      });
+      // Wait a bit for the connection to establish, then explicitly set status
+      setTimeout(async () => {
+        try {
+          await updateUserStatus(true)
+          console.log('Explicitly set user status to online after timeout')
+        } catch (error) {
+          console.error('Error in timeout status update:', error)
+        }
+      }, 1000)
 
-      connectionStatus.value = 'connected';
       setupMessageListener()
-    } catch (error) {
-      console.error('Connection error:', error);
-      connectionStatus.value = 'disconnected';
-    }
 
+    } catch (error) {
+      console.error('Connection error:', error)
+      connectionStatus.value = 'disconnected'
+    }
   }
 
   const setupMessageListener = () => {
@@ -157,14 +172,17 @@ export const useRealtimeChat = () => {
       const messagesRef = query(
         dbRef(db, 'messages'),
         orderByChild('timestamp')
-      );
+      )
 
-      return onValue(messagesRef, (snapshot) => {
-        const messagesList: VoiceMessage[] = [];
+      // Remove any existing listener first
+      if (messageListener) {
+        off(messagesRef, 'value', messageListener)
+      }
 
+      messageListener = onValue(messagesRef, (snapshot) => {
+        const messagesList: VoiceMessage[] = []
         snapshot.forEach((childSnapshot) => {
-          const msg = childSnapshot.val();
-
+          const msg = childSnapshot.val()
           messagesList.push({
             id: childSnapshot.key || Date.now().toString(),
             type: msg.type,
@@ -174,13 +192,15 @@ export const useRealtimeChat = () => {
             duration: msg.duration || 0,
             timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
             isOwn: msg.nickname === chatStore.userNickname
-          });
-        });
+          })
+        })
+        chatStore.setMessages(messagesList)
+      }, (error) => {
+        console.error('Error in message listener:', error)
+      })
 
-        chatStore.setMessages(messagesList);
-      });
     } catch (error) {
-      console.error('Error setting up message listener:', error);
+      console.error('Error setting up message listener:', error)
     }
   }
 
@@ -216,20 +236,29 @@ export const useRealtimeChat = () => {
   }
 
   const disconnect = () => {
+    console.log('Disconnecting...')
+
+    // Update status to offline using the dedicated function
     updateUserStatus(false)
-    off(userStatusRef)
+
+    // Clean up listeners
+    if (messageListener) {
+      const messagesRef = dbRef(db, 'messages')
+      off(messagesRef, 'value', messageListener)
+      messageListener = null
+    }
+
+    if (statusListener) {
+      const statusRef = dbRef(db, 'status')
+      off(statusRef, 'value', statusListener)
+      statusListener = null
+    }
+
     off(isOnlineRef)
     connectionStatus.value = 'disconnected'
   }
 
   const cleanup = () => {
-    if (userStatusRef) {
-      set(userStatusRef, {
-        state: 'offline',
-        lastChanged: serverTimestamp()
-      });
-    }
-
     disconnect()
   }
 

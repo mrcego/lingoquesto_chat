@@ -31,9 +31,12 @@ export const useVoiceRecorder = () => {
       console.log('Requesting microphone access...')
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          echoCancellation: false,  // Disable echo cancellation for better voice detection
+          noiseSuppression: false,  // Disable noise suppression to prevent voice filtering
+          autoGainControl: false,   // Disable auto gain control
+          sampleRate: 44100,        // Standard sample rate
+          channelCount: 1,          // Mono recording
+          sampleSize: 16            // 16-bit samples
         }
       })
 
@@ -250,6 +253,7 @@ export const useVoiceRecorder = () => {
       if (isValid) {
         await createVoiceMessage(audioBlob)
       } else {
+        alert('No detectamos audio. Hable un poco más fuerte o acerque el dispositivo.')
         console.log('Audio rejected - insufficient content')
       }
 
@@ -264,6 +268,7 @@ export const useVoiceRecorder = () => {
     try {
       // Verificar tamaño mínimo
       if (audioBlob.size < 1000) {
+        alert('Hable un poco más fuerte por favor.')
         console.log('Audio too small:', audioBlob.size, 'bytes')
         return false
       }
@@ -292,13 +297,13 @@ export const useVoiceRecorder = () => {
 
     } catch (error) {
       console.error('Audio validation error:', error)
+      alert('Hable un poco más fuerte por favor.')
       return audioBlob.size > 1000 // Fallback
     }
   }
 
   const createVoiceMessage = async (audioBlob: Blob): Promise<void> => {
     try {
-      const audioUrl = URL.createObjectURL(audioBlob);
       const duration = await getAudioDuration(audioBlob);
       const validatedDuration = Math.max(1, Math.min(30, duration));
 
