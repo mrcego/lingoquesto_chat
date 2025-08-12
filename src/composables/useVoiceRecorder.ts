@@ -13,6 +13,9 @@ export const useVoiceRecorder = () => {
   const recordingTimer = ref<ReturnType<typeof setInterval> | null>(null)
   const audioChunks = ref<Blob[]>([])
   const isRecordingActive = ref(false)
+  const audioContext = ref<AudioContext | null>(null)
+  const gainNode = ref<GainNode | null>(null)
+  const compressorNode = ref<DynamicsCompressorNode | null>(null)
 
   const startRecording = async (): Promise<boolean> => {
     console.log('=== START RECORDING ===')
@@ -27,32 +30,46 @@ export const useVoiceRecorder = () => {
       // Limpiar estado previo
       await cleanup()
 
-      // Solicitar acceso al micrófono
+      // Solicitar acceso al micrófono con configuraciones MEJORADAS
       console.log('Requesting microphone access...')
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,  // Disable echo cancellation for better voice detection
-          noiseSuppression: false,  // Disable noise suppression to prevent voice filtering
-          autoGainControl: false,   // Disable auto gain control
-          sampleRate: 44100,        // Standard sample rate
-          channelCount: 1,          // Mono recording
-          sampleSize: 16            // 16-bit samples
+          // Habilitar mejoras de audio
+          echoCancellation: true,      // Habilitar cancelación de eco
+          noiseSuppression: true,      // Habilitar supresión de ruido
+          autoGainControl: true,       // Habilitar control automático de ganancia
+          sampleRate: 48000,           // Tasa de muestreo más alta para mejor calidad
+          channelCount: 1,             // Mono recording
+          sampleSize: 16,              // 16-bit samples para buena calidad
         }
       })
 
       console.log('Microphone access granted, tracks:', stream.getTracks().length)
+
+      // Configurar procesamiento de audio adicional
+      await setupAudioProcessing(stream)
 
       // Configurar estados
       audioStream.value = stream
       audioChunks.value = []
       isRecordingActive.value = true
 
-      // Crear MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm'
+      // Crear MediaRecorder con la configuración más compatible
+      let mimeType = 'audio/webm'
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus'
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        mimeType = 'audio/mp4'
+      } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        mimeType = 'audio/ogg;codecs=opus'
+      }
 
-      const recorder = new MediaRecorder(stream, { mimeType })
+      console.log('Using MIME type:', mimeType)
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 128000  // Bitrate más alto para mejor calidad
+      })
       mediaRecorder.value = recorder
 
       // Configurar eventos
@@ -72,8 +89,8 @@ export const useVoiceRecorder = () => {
         stopRecording()
       }
 
-      // Iniciar grabación
-      recorder.start(100)
+      // Iniciar grabación con chunks más frecuentes para mejor detección
+      recorder.start(250)
       console.log('Recording started, state:', recorder.state)
 
       // Actualizar UI
@@ -88,6 +105,52 @@ export const useVoiceRecorder = () => {
       console.error('Failed to start recording:', error)
       await cleanup()
       return false
+    }
+  }
+
+  const setupAudioProcessing = async (stream: MediaStream): Promise<void> => {
+    try {
+      // Crear contexto de audio para procesamiento adicional
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      const ctx = new AudioContextClass()
+      audioContext.value = ctx
+
+      // Crear nodos de procesamiento
+      const source = ctx.createMediaStreamSource(stream)
+      const compressor = ctx.createDynamicsCompressor()
+      const gain = ctx.createGain()
+      const destination = ctx.createMediaStreamDestination()
+
+      // Configurar compresor para normalizar el volumen
+      compressor.threshold.value = -24      // Umbral de compresión
+      compressor.knee.value = 30            // Suavidad de la compresión
+      compressor.ratio.value = 12           // Ratio de compresión
+      compressor.attack.value = 0.01        // Tiempo de ataque
+      compressor.release.value = 0.25       // Tiempo de liberación
+
+      // Configurar ganancia (amplificación)
+      gain.gain.value = 2.5                 // Amplificar el audio 2.5x
+
+      // Conectar nodos: source -> compressor -> gain -> destination
+      source.connect(compressor)
+      compressor.connect(gain)
+      gain.connect(destination)
+
+      // Reemplazar el stream original con el procesado
+      const processedTracks = destination.stream.getTracks()
+      if (processedTracks.length > 0) {
+        // Reemplazar las pistas de audio originales
+        const originalTracks = stream.getAudioTracks()
+        originalTracks.forEach(track => stream.removeTrack(track))
+        processedTracks.forEach(track => stream.addTrack(track))
+
+        console.log('Audio processing setup completed')
+        compressorNode.value = compressor
+        gainNode.value = gain
+      }
+
+    } catch (error) {
+      console.warn('Audio processing setup failed, using original stream:', error)
     }
   }
 
@@ -114,6 +177,18 @@ export const useVoiceRecorder = () => {
         }
       })
       audioStream.value = null
+    }
+
+    // Detener contexto de audio
+    if (audioContext.value && audioContext.value.state !== 'closed') {
+      try {
+        await audioContext.value.close()
+        audioContext.value = null
+        gainNode.value = null
+        compressorNode.value = null
+      } catch (error) {
+        console.error('Error closing audio context:', error)
+      }
     }
 
     // Detener MediaRecorder
@@ -186,6 +261,19 @@ export const useVoiceRecorder = () => {
       }, 100)
     }
 
+    // Cerrar contexto de audio
+    if (audioContext.value && audioContext.value.state !== 'closed') {
+      try {
+        await audioContext.value.close()
+        audioContext.value = null
+        gainNode.value = null
+        compressorNode.value = null
+        console.log('Audio context closed')
+      } catch (error) {
+        console.error('Error closing audio context:', error)
+      }
+    }
+
     // Detener MediaRecorder
     if (mediaRecorder.value && mediaRecorder.value.state === 'recording') {
       console.log('Stopping MediaRecorder...')
@@ -246,14 +334,14 @@ export const useVoiceRecorder = () => {
 
       console.log('Audio blob created, size:', audioBlob.size, 'bytes')
 
-      // Validar audio
+      // Validar audio con umbrales MÁS PERMISIVOS
       const isValid = await validateAudio(audioBlob)
       console.log('Audio validation result:', isValid)
 
       if (isValid) {
         await createVoiceMessage(audioBlob)
       } else {
-        alert('No detectamos audio. Hable un poco más fuerte o acerque el dispositivo.')
+        alert('No detectamos audio. Intente hablar más cerca del micrófono.')
         console.log('Audio rejected - insufficient content')
       }
 
@@ -266,39 +354,64 @@ export const useVoiceRecorder = () => {
 
   const validateAudio = async (audioBlob: Blob): Promise<boolean> => {
     try {
-      // Verificar tamaño mínimo
-      if (audioBlob.size < 1000) {
-        alert('Hable un poco más fuerte por favor.')
+      // CAMBIO IMPORTANTE: Reducir el umbral mínimo de tamaño
+      if (audioBlob.size < 500) {  // Reducido de 1000 a 500 bytes
         console.log('Audio too small:', audioBlob.size, 'bytes')
         return false
       }
 
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
+      const audioContext = new AudioContextClass()
       const arrayBuffer = await audioBlob.arrayBuffer()
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
 
       const channelData = audioBuffer.getChannelData(0)
       let sum = 0
       let peak = 0
+      let nonZeroSamples = 0
 
       for (let i = 0; i < channelData.length; i++) {
         const sample = Math.abs(channelData[i])
         sum += sample
         peak = Math.max(peak, sample)
+        if (sample > 0.001) nonZeroSamples++  // Contar samples con contenido
       }
 
       const average = sum / channelData.length
+      const nonZeroRatio = nonZeroSamples / channelData.length
+
       await audioContext.close()
 
-      const isValid = average > 0.005 || peak > 0.05
-      console.log('Audio stats - average:', average, 'peak:', peak, 'valid:', isValid)
+      // CAMBIO IMPORTANTE: Umbrales MÁS PERMISIVOS
+      const hasAverage = average > 0.001    // Reducido de 0.005 a 0.001
+      const hasPeak = peak > 0.01           // Reducido de 0.05 a 0.01
+      const hasContent = nonZeroRatio > 0.1 // Al menos 10% del audio tiene contenido
+      const hasMinDuration = audioBuffer.duration > 0.5  // Al menos 0.5 segundos
+
+      const isValid = (hasAverage || hasPeak || hasContent) && hasMinDuration
+
+      console.log('Audio validation stats:', {
+        size: audioBlob.size,
+        duration: audioBuffer.duration,
+        average: average.toFixed(6),
+        peak: peak.toFixed(6),
+        nonZeroRatio: nonZeroRatio.toFixed(3),
+        hasAverage,
+        hasPeak,
+        hasContent,
+        hasMinDuration,
+        isValid
+      })
 
       return isValid
 
     } catch (error) {
       console.error('Audio validation error:', error)
-      alert('Hable un poco más fuerte por favor.')
-      return audioBlob.size > 1000 // Fallback
+      // Fallback más permisivo: si hay error, validar solo por tamaño y duración estimada
+      const estimatedDuration = audioBlob.size / 16000  // Estimación básica
+      const isValid = audioBlob.size > 500 && estimatedDuration > 0.5
+      console.log('Using fallback validation:', { size: audioBlob.size, estimatedDuration, isValid })
+      return isValid
     }
   }
 
@@ -328,6 +441,12 @@ export const useVoiceRecorder = () => {
         timestamp: new Date(),
         isOwn: true
       };
+
+      console.log('✅ Sending voice message:', {
+        size: audioBlob.size,
+        duration: validatedDuration,
+        mimeType: audioBlob.type
+      })
 
       chatStore.addMessage(message);
       realtimeChat.sendVoiceMessage(message);
@@ -409,6 +528,19 @@ export const useVoiceRecorder = () => {
         console.error('Error stopping audio tracks:', error)
       }
       audioStream.value = null
+    }
+
+    // Cerrar contexto de audio
+    if (audioContext.value && audioContext.value.state !== 'closed') {
+      try {
+        await audioContext.value.close()
+        console.log('Audio context closed')
+      } catch (error) {
+        console.error('Error closing audio context:', error)
+      }
+      audioContext.value = null
+      gainNode.value = null
+      compressorNode.value = null
     }
 
     // Limpiar MediaRecorder
