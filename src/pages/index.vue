@@ -35,7 +35,7 @@
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
 
-      chatStore.login(`${name.value} ${lastname.value}`);
+      chatStore.login(`${name.value.trim()} ${lastname.value.trim()}`);
 
       // Connect to Firebase after successful login
       await connect();
@@ -59,8 +59,10 @@
       <v-col cols="12" sm="8" md="6" lg="4">
         <v-card class="login-card" elevation="12" rounded="lg">
           <v-card-title class="text-center pa-8">
-            <v-icon color="primary" size="64" class="mb-4">mdi-microphone</v-icon>
-            <h1 class="text-h4 font-weight-bold text-primary">LingoQuesto Voice Chat</h1>
+            <v-icon color="primary" class="mb-2 mb-md-4" :size="$vuetify.display.mobile ? 48 : 64">
+              mdi-microphone
+            </v-icon>
+            <h1 class="text-h5 text-md-h4 font-weight-bold text-primary">LingoQuesto Voice Chat</h1>
           </v-card-title>
 
           <v-card-text class="px-8 pb-8">
