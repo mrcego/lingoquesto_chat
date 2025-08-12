@@ -13,7 +13,7 @@
   import { getInitials } from '@/utils';
 
   const chatStore = useChatStore();
-  const { userNickname, onlineUsers } = storeToRefs(chatStore);
+  const { userNickname, onlineUsers, isUserLoggedIn } = storeToRefs(chatStore);
 
   const { currentThemeName, toggleTheme } = useAppTheme();
   const { connectionStatus, onOnlineUsersUpdated, connect } = useRealtimeChat();
@@ -82,10 +82,10 @@
 
   // Watch for changes in the login status
   watch(
-    () => chatStore.isUserLoggedIn,
+    () => isUserLoggedIn.value,
     (isLoggedIn) => {
       console.log('👤 User login status changed:', isLoggedIn);
-      if (isLoggedIn && chatStore.userNickname) {
+      if (isLoggedIn && userNickname.value) {
         connectUser();
       } else if (!isLoggedIn) {
         isConnected.value = false;
