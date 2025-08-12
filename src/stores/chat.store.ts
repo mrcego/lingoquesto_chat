@@ -1,18 +1,43 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+// Import the useRealtimeChat composable here to avoid timing issues
+import { useRealtimeChat } from '@/composables/useRealtimeChat'
+
 import type { VoiceMessage, User } from '@/types/chat'
 
+import { getInitials } from '@/utils'
+
+
 export const useChatStore = defineStore('chat', () => {
+  const realtimeChat = useRealtimeChat()
+
+
   // State
+  /**
+   * The user object containing their nickname and initials
+   */
   const user = ref<User>({
     nickname: '',
     initials: '',
     isLoggedIn: false
   })
 
+  /**
+   * The array of messages in the chat
+   */
   const messages = ref<VoiceMessage[]>([])
+
+  /**
+   * Whether the user is currently recording a voice message
+   */
   const isRecording = ref(false)
+
+  /**
+   * The duration of the current recording in seconds
+   */
   const recordingDuration = ref(0)
+
+  /**
+   * The array of online users in the chat
+   */
   const onlineUsers = ref<Array<{
     nickname: string
     online: boolean
@@ -20,9 +45,24 @@ export const useChatStore = defineStore('chat', () => {
   }>>([])
 
   // Getters
+  /**
+   * Whether the user is currently logged in
+   */
   const isUserLoggedIn = computed(() => user.value.isLoggedIn)
+
+  /**
+   * The user's nickname
+   */
   const userNickname = computed(() => user.value.nickname)
+
+  /**
+   * The user's initials
+   */
   const userInitials = computed(() => user.value.initials)
+
+  /**
+   * The sorted array of messages in the chat
+   */
   const sortedMessages = computed(() =>
     [...messages.value].sort((a, b) => {
       const timeA = typeof a.timestamp === 'string' ? new Date(a.timestamp).getTime() : a.timestamp.getTime();
@@ -31,21 +71,20 @@ export const useChatStore = defineStore('chat', () => {
     })
   )
 
-  // Computed para filtrar usuarios online (excluyendo al usuario actual)
+  // Computed property to filter out the current user from the online users list
   const otherOnlineUsers = computed(() =>
-    onlineUsers.value.filter(u => u.nickname !== userNickname.value)
+    onlineUsers.value.filter(user => user.nickname !== userNickname.value)
   )
 
   // Actions
+  /**
+   * Login a user with a given nickname
+   * @param nickname The nickname to log in with
+   */
   const login = (nickname: string) => {
-    const trimmedNickname = nickname.trim()
-    const nameParts = trimmedNickname.split(' ')
-
     user.value = {
-      nickname: trimmedNickname,
-      initials: nameParts.length >= 2
-        ? `${nameParts[0].charAt(0).toUpperCase()}${nameParts[1].charAt(0).toUpperCase()}`
-        : `${nameParts[0].charAt(0).toUpperCase()}${nameParts[0].charAt(1)?.toUpperCase() || ''}`,
+      nickname: nickname,
+      initials: getInitials(nickname),
       isLoggedIn: true
     }
 
@@ -53,15 +92,16 @@ export const useChatStore = defineStore('chat', () => {
     loadMessages()
   }
 
+  /**
+   * Logout the user
+   */
   const logout = async () => {
-    // Importar useRealtimeChat aquí para evitar problemas de timing
-    const { useRealtimeChat } = await import('@/composables/useRealtimeChat')
-    const realtimeChat = useRealtimeChat()
+
 
     console.log('🔌 Disconnecting user:', user.value.nickname)
     realtimeChat.disconnect()
 
-    // Limpiar estado
+    // Clear the state
     user.value = {
       nickname: '',
       initials: '',
@@ -74,11 +114,19 @@ export const useChatStore = defineStore('chat', () => {
     console.log('✅ User logged out and disconnected')
   }
 
+  /**
+   * Add a new message to the chat
+   * @param message The new message to add
+   */
   const addMessage = (message: VoiceMessage) => {
     messages.value.push(message)
     saveMessages()
   }
 
+  /**
+   * Set the recording state of the user
+   * @param recording Whether the user is recording or not
+   */
   const setRecordingState = (recording: boolean) => {
     isRecording.value = recording
     if (!recording) {
@@ -86,10 +134,17 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /**
+   * Update the recording duration of the user
+   * @param duration The new recording duration
+   */
   const updateRecordingDuration = (duration: number) => {
     recordingDuration.value = duration
   }
 
+  /**
+   * Load the messages from local storage
+   */
   const loadMessages = () => {
     try {
       const savedMessages = localStorage.getItem(`chat_messages_${user.value.nickname}`);
@@ -108,11 +163,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /**
+   * Set the messages in the chat
+   * @param newMessages The new messages to set
+   */
   const setMessages = (newMessages: VoiceMessage[]) => {
     messages.value = newMessages;
     saveMessages(); // Save to localStorage
   }
 
+  /**
+   * Save the messages in the chat to local storage
+   */
   const saveMessages = () => {
     try {
       const messagesToSave = messages.value.map(msg => {
@@ -135,6 +197,10 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * Initialize the user from local storage
+   * @return Whether the user was successfully initialized
+   */
   const initUser = () => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
@@ -154,6 +220,10 @@ export const useChatStore = defineStore('chat', () => {
     return false
   }
 
+  /**
+   * Set the online users in the chat
+   * @param users The array of online users
+   */
   const setOnlineUsers = (users: Array<{
     nickname: string
     online: boolean
@@ -163,15 +233,15 @@ export const useChatStore = defineStore('chat', () => {
     onlineUsers.value = users
   }
 
-  // Método para obtener el estado de conexión de un usuario específico
+  // Method to get the online status of a specific user
   const isUserOnline = (nickname: string): boolean => {
     const foundUser = onlineUsers.value.find(u => u.nickname === nickname)
     return foundUser?.online || false
   }
 
-  // Método para obtener la cantidad de usuarios online
+  // Computed property to get the number of online users
   const getOnlineUsersCount = computed(() =>
-    onlineUsers.value.filter(u => u.online).length
+    onlineUsers.value.filter(user => user.online).length
   )
 
   return {

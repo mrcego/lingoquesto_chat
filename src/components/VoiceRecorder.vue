@@ -25,13 +25,11 @@
 
     if (isRecording.value) return;
 
-    console.log('startRecording');
     showPermissionError.value = false;
     showValidationError.value = false;
 
     const success = await startRecording();
 
-    console.log(success);
     if (!success) {
       showPermissionError.value = true;
       emit('onError');
@@ -44,8 +42,6 @@
    */
   const onStopRecording = async (e?: Event) => {
     e?.preventDefault();
-
-    console.log('stopRecording');
 
     // Try to stop recording normally
     await stopRecording();
