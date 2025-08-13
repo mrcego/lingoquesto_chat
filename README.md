@@ -1,83 +1,60 @@
-# Vuetify (Default)
+# LingoQuesto Chat
+ 
+Aplicación web construida con Vue 3, Vite, TypeScript y Vuetify. El entorno de desarrollo se expone a Internet usando un túnel de Cloudflare para facilitar pruebas y demostraciones remotas con una URL pública segura.
+ 
+## Descripción
 
-This is the official scaffolding tool for Vuetify, designed to give you a head start in building your new Vuetify application. It sets up a base template with all the necessary configurations and standard directory structure, enabling you to begin development without the hassle of setting up the project from scratch.
+LingoQuesto Chat es un entorno de pruebas para un chat/front-end en Vue 3 con Vuetify. Incluye un script que levanta Vite y abre un túnel temporal con Cloudflare (`cloudflared`) para compartir una URL pública mientras desarrollas en local.
 
-## ❗️ Important Links
+## Requisitos
 
-- 📄 [Docs](https://vuetifyjs.com/)
-- 🚨 [Issues](https://issues.vuetifyjs.com/)
-- 🏬 [Store](https://store.vuetifyjs.com/)
-- 🎮 [Playground](https://play.vuetifyjs.com/)
-- 💬 [Discord](https://community.vuetifyjs.com)
+- Node.js 18+ (recomendado 20+)
+- pnpm instalado globalmente (el script de dev usa `pnpm vite`)
+  - Instalar: `npm i -g pnpm`
+- Dependencias del proyecto instaladas: `pnpm install`
+- Cloudflared está incluido como devDependency y se ejecuta con `npx`.
+  - Verificar instalación: `npx cloudflared --version`
 
-## 💿 Install
-
-Set up your project using your preferred package manager. Use the corresponding command to install the dependencies:
-
-| Package Manager                                                | Command        |
-|---------------------------------------------------------------|----------------|
-| [yarn](https://yarnpkg.com/getting-started)                   | `yarn install` |
-| [npm](https://docs.npmjs.com/cli/v7/commands/npm-install)     | `npm install`  |
-| [pnpm](https://pnpm.io/installation)                          | `pnpm install` |
-| [bun](https://bun.sh/#getting-started)                        | `bun install`  |
-
-After completing the installation, your environment is ready for Vuetify development.
-
-## ✨ Features
-
-- 🖼️ **Optimized Front-End Stack**: Leverage the latest Vue 3 and Vuetify 3 for a modern, reactive UI development experience. [Vue 3](https://v3.vuejs.org/) | [Vuetify 3](https://vuetifyjs.com/en/)
-- 🗃️ **State Management**: Integrated with [Pinia](https://pinia.vuejs.org/), the intuitive, modular state management solution for Vue.
-- 🚦 **Routing and Layouts**: Utilizes Vue Router for SPA navigation and vite-plugin-vue-layouts-next for organizing Vue file layouts. [Vue Router](https://router.vuejs.org/) | [vite-plugin-vue-layouts-next](https://github.com/loicduong/vite-plugin-vue-layouts-next)
-- 💻 **Enhanced Development Experience**: Benefit from TypeScript's static type checking and the ESLint plugin suite for Vue, ensuring code quality and consistency. [TypeScript](https://www.typescriptlang.org/) | [ESLint Plugin Vue](https://eslint.vuejs.org/)
-- ⚡ **Next-Gen Tooling**: Powered by Vite, experience fast cold starts and instant HMR (Hot Module Replacement). [Vite](https://vitejs.dev/)
-- 🧩 **Automated Component Importing**: Streamline your workflow with unplugin-vue-components, automatically importing components as you use them. [unplugin-vue-components](https://github.com/antfu/unplugin-vue-components)
-- 🛠️ **Strongly-Typed Vue**: Use vue-tsc for type-checking your Vue components, and enjoy a robust development experience. [vue-tsc](https://github.com/johnsoncodehk/volar/tree/master/packages/vue-tsc)
-
-These features are curated to provide a seamless development experience from setup to deployment, ensuring that your Vuetify application is both powerful and maintainable.
-
-## 💡 Usage
-
-This section covers how to start the development server and build your project for production.
-
-### Starting the Development Server
-
-To start the development server with hot-reload, run the following command. The server will be accessible at [http://localhost:3000](http://localhost:3000):
+## Instalación
 
 ```bash
-yarn dev
+pnpm install
 ```
 
-(Repeat for npm, pnpm, and bun with respective commands.)
-
-> Add NODE_OPTIONS='--no-warnings' to suppress the JSON import warnings that happen as part of the Vuetify import mapping. If you are on Node [v21.3.0](https://nodejs.org/en/blog/release/v21.3.0) or higher, you can change this to NODE_OPTIONS='--disable-warning=5401'. If you don't mind the warning, you can remove this from your package.json dev script.
-
-### Building for Production
-
-To build your project for production, use:
+## Uso (desarrollo con túnel)
 
 ```bash
-yarn build
+pnpm dev
 ```
 
-(Repeat for npm, pnpm, and bun with respective commands.)
+Esto ejecuta `scripts/tunnel.js`, que:
 
-Once the build process is completed, your application will be ready for deployment in a production environment.
+- Levanta Vite en `http://localhost:5173` (con HMR).
+- Abre un túnel con Cloudflared apuntando a ese puerto y mostrará en consola una URL `https://...` para compartir.
 
-## 💪 Support Vuetify Development
+Notas:
 
-This project is built with [Vuetify](https://vuetifyjs.com/en/), a UI Library with a comprehensive collection of Vue components. Vuetify is an MIT licensed Open Source project that has been made possible due to the generous contributions by our [sponsors and backers](https://vuetifyjs.com/introduction/sponsors-and-backers/). If you are interested in supporting this project, please consider:
+- En Windows se usa `shell: true` para compatibilidad de procesos.
+- Si usas `npm`/`yarn`, asegúrate de tener `pnpm` igualmente instalado porque el script invoca `pnpm vite`.
 
-- [Requesting Enterprise Support](https://support.vuetifyjs.com/)
-- [Sponsoring John on Github](https://github.com/users/johnleider/sponsorship)
-- [Sponsoring Kael on Github](https://github.com/users/kaelwd/sponsorship)
-- [Supporting the team on Open Collective](https://opencollective.com/vuetify)
-- [Becoming a sponsor on Patreon](https://www.patreon.com/vuetify)
-- [Becoming a subscriber on Tidelift](https://tidelift.com/subscription/npm/vuetify)
-- [Making a one-time donation with Paypal](https://paypal.me/vuetify)
+## Scripts disponibles
 
-## 📑 License
-[MIT](http://opensource.org/licenses/MIT)
+- `pnpm dev`: arranca Vite y el túnel de Cloudflare (`scripts/tunnel.js`).
+- `pnpm build`: compila el proyecto para producción.
+- `pnpm preview`: sirve la build localmente.
+- `pnpm type-check`: verificación de tipos con `vue-tsc`.
+- `pnpm lint`: corre ESLint con `--fix`.
 
-Copyright (c) 2016-present Vuetify, LLC
-"# lingoquesto_chat" 
-"# lingoquesto_chat" 
+## Personalizar puerto del dev server
+
+Edita `scripts/tunnel.js` y cambia los argumentos de `pnpm vite --port 5173` y el `--url http://localhost:5173` de cloudflared por el puerto deseado.
+
+## Solución de problemas
+
+- Puerto 5173 en uso: cierra procesos previos o cambia el puerto en `scripts/tunnel.js`.
+- `pnpm` no encontrado: instala globalmente con `npm i -g pnpm`.
+- `cloudflared` no encontrado: ejecuta `pnpm install` y prueba `npx cloudflared --version`.
+
+## Licencia
+
+MIT
