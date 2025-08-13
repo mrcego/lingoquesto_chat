@@ -30,7 +30,7 @@ pnpm dev
 Esto ejecuta `scripts/tunnel.js`, que:
 
 - Levanta Vite en `http://localhost:5173` (con HMR).
-- Abre un túnel con Cloudflared apuntando a ese puerto y mostrará en consola una URL `https://...` para compartir.
+- Abre un túnel con Cloudflared apuntando a ese puerto y mostrará en consola una URL `https://...` para compartir. Es importante esta herramienta para usar el microfono y probar la funcionalidad, ya que solo se pueda habilitar en entornos seguros.
 
 Notas:
 
